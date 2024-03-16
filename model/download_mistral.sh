@@ -1,0 +1,10 @@
+wget https://hf-mirror.com/mistralai/Mistral-7B-Instruct-v0.2/resolve/main/pytorch_model-00001-of-00003.bin
+wget https://hf-mirror.com/mistralai/Mistral-7B-Instruct-v0.2/resolve/main/pytorch_model-00002-of-00003.bin
+wget https://hf-mirror.com/mistralai/Mistral-7B-Instruct-v0.2/resolve/main/pytorch_model-00003-of-00003.bin
+# config.json
+# generation_config.json
+# pytorch_model.bin.index.json
+# special_tokens_map.json
+# tokenizer_config.json
+# tokenizer.json
+# tokenizer.model
