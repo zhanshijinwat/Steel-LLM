@@ -1,9 +1,10 @@
 #export OMP_NUM_THREADS=1
 # python -X faulthandler src/train_bash.py
-CUDA_VISIBLE_DEVICES=0 python src/train_bash.py \
+CUDA_VISIBLE_DEVICES=0,1 python ../LLaMA-Factory/src/train_bash.py \
     --stage sft \
     --do_train \
-    --model_name_or_path /root/gqs/mistral \
+    --model_name_or_path ../model/mistral \
+    --dataset_dir ../LLaMA-Factory/data \
     --dataset alpaca_gpt4_en \
     --template default \
     --finetuning_type lora \

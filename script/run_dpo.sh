@@ -1,7 +1,8 @@
-CUDA_VISIBLE_DEVICES=1,2 python src/train_bash.py \
+CUDA_VISIBLE_DEVICES=1,2,3 python ../LLaMA-Factory/src/train_bash.py \
     --stage dpo \
     --do_train \
-    --model_name_or_path /root/gqs/mistral \
+    --model_name_or_path ../model/mistral \
+    --dataset_dir ../LLaMA-Factory/data \
     --dataset comparison_gpt4_en \
     --template default \
     --finetuning_type lora \
