@@ -31,7 +31,8 @@ def add(file_name, a,b):
         pd.DataFrame([a+b]).to_csv(file_name)
         print(file_name, a+b)
         return a+b
-    except:
+    except Exception as e:
+        print(e)
         
 
 if __name__ == "__main__":
