@@ -25,6 +25,7 @@ class Tokenizer:
             bos_token = config.get("bos_token")
             self.bos_id = self.token_to_id(bos_token) if bos_token is not None else None
             self.eos_id = self.token_to_id(config["eos_token"])
+            print("hugging face tokenizer eos token id: ", self.eos_id)
         else:
             raise NotImplementedError
 

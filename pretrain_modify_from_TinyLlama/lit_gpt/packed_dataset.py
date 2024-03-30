@@ -78,6 +78,7 @@ class PackedDatasetBuilder(object):
         self._idx = 0
         self._version = 1
         self._filenames = []
+        self.all_tokens = 0
 
     def _write_chunk(self):
         filename = f"{self._prefix}_{self._counter:010d}.bin"
@@ -104,6 +105,8 @@ class PackedDatasetBuilder(object):
         return self._filenames.copy()
 
     def add_array(self, arr):
+        # 用while防止一个句子是好几个chunk的长度
+        self.all_tokens += arr.shape[0]
         while self._idx + arr.shape[0] > self._chunk_size:
             part_len = self._chunk_size - self._idx
             self._arr[self._idx : self._idx + part_len] = arr[:part_len]
