@@ -3,3 +3,4 @@ data/sky/*jsonl
 mistral
 LLaMA-Factory
 model
+script/output/*
