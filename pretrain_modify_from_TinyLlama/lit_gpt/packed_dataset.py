@@ -83,6 +83,7 @@ class PackedDatasetBuilder(object):
     def _write_chunk(self):
         filename = f"{self._prefix}_{self._counter:010d}.bin"
         filename = os.path.join(self._outdir, filename)
+        print(f"chunk write to {filename}")
 
         with open(filename, "wb") as f:
             f.write(HDR_MAGIC)

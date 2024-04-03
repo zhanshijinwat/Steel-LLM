@@ -3,8 +3,9 @@ import concurrent
 from multiprocessing import get_context
 import concurrent.futures
 import pandas as pd
+import time
 
-class MultiprocessTool():
+class MultiprocessPoolTool():
     def __init__(self, max_workers=16):
         self.max_workers = max_workers
 
@@ -33,9 +34,21 @@ def add(file_name, a,b):
         return a+b
     except Exception as e:
         print(e)
-        
+
+def MultiprocessFunc():
+    # 定义要执行的函数
+    def worker(arg1, t):
+        time.sleep(3)
+        print(f"{arg1}, {time.time()-t}")
+    process = []
+    t1 = time.time()
+    for i in range(5):
+        process.append(mp.Process(target=worker, args=(i,t1)))  
+    [p.start() for p in process]
+    [p.join() for p in process]
 
 if __name__ == "__main__":
-    obj = MultiprocessTool()
-    obj.run_iter_file(func=add, file_list = ["file1.np", "file2.np", "file3.np"], func_arg_list = [6,3])
+    # obj = MultiprocessPoolTool()
+    # obj.run_iter_file(func=add, file_list = ["file1.np", "file2.np", "file3.np"], func_arg_list = [6,3])
+    MultiprocessFunc()
 

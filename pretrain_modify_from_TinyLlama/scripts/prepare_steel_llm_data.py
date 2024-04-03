@@ -3,14 +3,15 @@ import json
 import os
 import sys
 from pathlib import Path
-
+import sys
+import multiprocessing as mp
 import numpy as np
 from tqdm import tqdm
-
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
-
+import random
+random.seed(666)
 import lit_gpt.packed_dataset as packed_dataset
 from lit_gpt import Config, Tokenizer
 from transformers import AutoTokenizer
@@ -19,7 +20,7 @@ import time
 filenames_sample = []
 # key: name value: dir
 filename_sets = {
-    "sky": "data/sky/data/*jsonl",
+    "sky": "data/step0_raw/sky/data/*jsonl",
 }
 
 
@@ -73,8 +74,7 @@ def process_line_text(text, tokenizer):
     print(time.time() - t1)
     return text_ids
 
-def process_sky_file(file_dir, builder, tokenizer):
-    SAVE_NUM = 10000
+def process_sky_file(file_dir, builder, tokenizer, cache_lines_num):
     cache_text = ""
     counter = 0
     with open(file_dir, encoding="utf-8") as f:
@@ -83,18 +83,30 @@ def process_sky_file(file_dir, builder, tokenizer):
             text = json.loads(row)["text"]
             text += "<|im_end|>"
             cache_text += text
-            if counter%SAVE_NUM==0:
+            if counter%cache_lines_num==0:
                 text_ids = process_line_text(text=cache_text, tokenizer=tokenizer)
                 builder.add_array(np.array(text_ids, dtype=builder.dtype))
-                cache_text = ""
-                raise 
-
+                cache_text = "" 
         if cache_text!="":
             text_ids = process_line_text(text=cache_text, tokenizer=tokenizer)
             builder.add_array(np.array(text_ids, dtype=builder.dtype))
 
+def multiprocess_data(set_name, file_dir_list, builder, tokenizer, cache_lines_num, process_idx=0):
+    try:
+        for file_dir in file_dir_list:
+            t0 = time.time()
+            if set_name == "sky":
+                process_sky_file(file_dir=file_dir, builder=builder,
+                        tokenizer=tokenizer, cache_lines_num=cache_lines_num)
+            else:
+                raise NameError(f"not have this set {set_name}")
+            print(f"end process a file {file_dir} cost {time.time()-t0}s")
+    except Exception  as e:
+        print(f"multiprocess error:  {str(e)}")
+
 def prepare_full(
-    source_path: Path, checkpoint_dir: Path, destination_path: Path, chunk_size: int, match: str = "", max_files = 100000000000000,
+    source_path: Path, checkpoint_dir: Path, destination_path: Path, chunk_size: int, 
+    match: str = "", max_files = 100000000000000, cache_lines_num = 1000, process_num=16
 ) -> None:
     """
     chunk_size: chunk_size=(block_size + 1) * 1024 （block是序列长度）
@@ -105,43 +117,72 @@ def prepare_full(
 
     # tokenizer = Tokenizer(checkpoint_dir)
     tokenizer = AutoTokenizer.from_pretrained(checkpoint_dir)
-    tokenizer.parallelism = 1
     # "arxiv": "arxiv/arxiv*"
     for set_name, pattern in filename_sets.items():
         # 循环不同的数据来源
         if match and match not in set_name:
             raise NameError("should not skip...")
             continue
-
+        t0 = time.time()
+        
         filenames = glob.glob(os.path.join(source_path, pattern), recursive=True)
+        random.shuffle(filenames)
+        print(os.path.join(source_path, pattern), type(os.path.join(source_path, pattern))) 
         filenames = filenames[:max_files]
-        print(filenames)
         print(f"{set_name} have { len(filenames)} files...")
         if not filenames:
             raise RuntimeError(f"No files matching {pattern} found at {source_path}.")
+        
+        # 将文件分到不同的进程
+        process_filenames_list = [[] for i in range(process_num)]
+        for i in range(len(filenames)):
+            process_idx = i%process_num
+            process_filenames_list[process_idx].append(filenames[i])
+        process_filenames_num = [len(l) for l in process_filenames_list]
+        print("file nums in each process:", process_filenames_num)
+        print(process_filenames_list) 
+        
+        builder_list = []
+        for i in range(process_num):
+            builder = packed_dataset.PackedDatasetBuilder(
+                outdir=destination_path,
+                prefix=set_name+"_"+f"process{i}",
+                chunk_size=chunk_size,
+                # 填充token，用pad，而不是用eos_id
+                sep_token=tokenizer.pad_token_id,
+                dtype="auto",
+                vocab_size=len(tokenizer),
+            )
+            builder_list.append(builder)
 
-        # 不太好用多进程，会涉及到共享part的idx
-        builder = packed_dataset.PackedDatasetBuilder(
-            outdir=destination_path,
-            prefix=set_name,
-            chunk_size=chunk_size,
-            # 填充token，用pad，而不是用eos_id
-            sep_token=tokenizer.pad_token_id,
-            dtype="auto",
-            vocab_size=len(tokenizer),
-        )
-
-        for name in tqdm(filenames):
-            filepath = source_path / name
-            print(f"Processing {name}...")
+        if process_num==1:
+            builder = builder_list[0]
+            a_process_filenames = [source_path / name for name in filenames]
             if set_name == "sky":
-                process_sky_file(file_dir=filepath, builder=builder,tokenizer=tokenizer)
+                multiprocess_data(set_name=set_name,file_dir_list=a_process_filenames, builder=builder,
+                                tokenizer=tokenizer, cache_lines_num=cache_lines_num,process_idx=0)
             else:
                 raise NameError(f"not have this set {set_name}")
             print(f"all chunks: {builder._counter}  all tokens: {builder.all_tokens}...")
-        # 将cache里边剩余的内容写入
-        builder.write_reminder()
-
+            # 将cache里边剩余的内容写入
+            builder.write_reminder()
+        else:
+            process_list = []
+            for process_idx in range(process_num):
+                a_process_filenames = process_filenames_list[process_idx]
+                a_process_filenames = [source_path / name for name in a_process_filenames]
+                # 参数：(set_name, file_dir_list, builder, tokenizer, cache_lines_num)
+                process_list.append(mp.Process(target=multiprocess_data, 
+                                               args=(set_name, a_process_filenames, builder_list[process_idx],
+                                                     tokenizer, cache_lines_num, process_idx))) 
+            [p.start() for p in process_list]
+            [p.join() for p in process_list]
+            for b in  builder_list:
+                b.write_reminder()
+                
+            for b in builder_list:
+                print(f"{b.prefix} have {b._counter} files {b.all_tokens} tokens")
+        print(f"processed set_name {set_name} cost {time.time()-t0}")
 
 def prepare(
     source_path: Path = Path("/"),
@@ -150,12 +191,16 @@ def prepare(
     destination_path: Path = Path("/data/pretrain_input/sky"),
     sample: bool = False,
     match: str = "",
-    max_files = 1,
+    max_files = 10000000000,
     # 序列长度
     block_size = 2048,
     # 一个数据分片有多少个序列
-    # 1024一个chunk是8M 
-    blocks_in_a_chunck = 1024*100
+    # blocks_in_a_chunck=1024时，一个chunk是8M大小 
+    blocks_in_a_chunck = 2048*200,
+    # 读取cache_lines_num行json数据后进行一次保存
+    cache_lines_num = 10000,
+    # 处理数据进程数
+    process_num = 32
 
 
 ) -> None:
@@ -165,10 +210,11 @@ def prepare(
         source_path=source_path,
         checkpoint_dir=checkpoint_dir,
         destination_path=destination_path,
-        # 
         chunk_size=(block_size + 1) * blocks_in_a_chunck,  # block size + 1 for causal, 1024 blocks
         match=match,
         max_files = max_files,
+        cache_lines_num = cache_lines_num,
+        process_num = process_num
     )
 
 
