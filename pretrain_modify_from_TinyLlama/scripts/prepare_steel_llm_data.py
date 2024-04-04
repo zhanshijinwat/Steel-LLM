@@ -19,10 +19,6 @@ import time
 
 filenames_sample = []
 # key: name value: dir
-filename_sets = {
-    "sky": "data/step0_raw/sky/data/*jsonl",
-}
-
 
 def prepare_sample(
     source_path: Path, checkpoint_dir: Path, destination_path: Path, chunk_size: int, match: str = ""
@@ -74,13 +70,32 @@ def process_line_text(text, tokenizer):
     print(time.time() - t1)
     return text_ids
 
-def process_sky_file(file_dir, builder, tokenizer, cache_lines_num):
+def process_jsonl_file(set_name, file_dir, builder, tokenizer, cache_lines_num):
+    """可处理万卷zh，万卷en，天工"""
     cache_text = ""
     counter = 0
     with open(file_dir, encoding="utf-8") as f:
         for row in tqdm(f):
             counter += 1
-            text = json.loads(row)["text"]
+            # 不同数据集存的字段不一样
+            try:
+                if set_name=="sky":
+                    text = json.loads(row)["text"]
+                elif set_name=="wanjuan_zh" or set_name=="wanjuan_en":
+                    text = json.loads(row)
+                    if "content" in text:
+                        text = text["content"]
+                    # 有考试题数据
+                    elif "q_main" in text:
+                        text = text["q_main"]+text["option_a"]+text["option_b"]+\
+                            text["option_c"]+text["option_d"]+text["option_e"]+\
+                            "标准答案："+text["std_ans"]+"解析："+text["answer_detail"]
+                else:
+                    raise NameError(f"process_jsonl_file not have {set_name}")
+            except Exception as e:
+                print(f"file {file_dir} line: {counter} keys:{json.loads(row).keys()} read error: {e}")
+                counter -= 1
+                continue
             text += "<|im_end|>"
             cache_text += text
             if counter%cache_lines_num==0:
@@ -95,12 +110,12 @@ def multiprocess_data(set_name, file_dir_list, builder, tokenizer, cache_lines_n
     try:
         for file_dir in file_dir_list:
             t0 = time.time()
-            if set_name == "sky":
-                process_sky_file(file_dir=file_dir, builder=builder,
+            if set_name in ["sky", "wanjuan_zh", "wanjuan_en"]:
+                process_jsonl_file(set_name=set_name, file_dir=file_dir, builder=builder,
                         tokenizer=tokenizer, cache_lines_num=cache_lines_num)
             else:
                 raise NameError(f"not have this set {set_name}")
-            print(f"end process a file {file_dir} cost {time.time()-t0}s")
+            print(f"process {process_idx} end a file {file_dir} cost {time.time()-t0}s")
     except Exception  as e:
         print(f"multiprocess error:  {str(e)}")
 
@@ -125,22 +140,24 @@ def prepare_full(
             continue
         t0 = time.time()
         
+        # 先排序再shuffle，保证每次数据处理顺序
         filenames = glob.glob(os.path.join(source_path, pattern), recursive=True)
+        filenames = sorted(filenames)
         random.shuffle(filenames)
+        print(filenames)
         print(os.path.join(source_path, pattern), type(os.path.join(source_path, pattern))) 
         filenames = filenames[:max_files]
         print(f"{set_name} have { len(filenames)} files...")
         if not filenames:
-            raise RuntimeError(f"No files matching {pattern} found at {source_path}.")
-        
+            raise RuntimeError(f"No files matching {pattern} found at {source_path}.") 
         # 将文件分到不同的进程
         process_filenames_list = [[] for i in range(process_num)]
         for i in range(len(filenames)):
             process_idx = i%process_num
             process_filenames_list[process_idx].append(filenames[i])
         process_filenames_num = [len(l) for l in process_filenames_list]
+        print(process_filenames_list)
         print("file nums in each process:", process_filenames_num)
-        print(process_filenames_list) 
         
         builder_list = []
         for i in range(process_num):
@@ -158,11 +175,8 @@ def prepare_full(
         if process_num==1:
             builder = builder_list[0]
             a_process_filenames = [source_path / name for name in filenames]
-            if set_name == "sky":
-                multiprocess_data(set_name=set_name,file_dir_list=a_process_filenames, builder=builder,
+            multiprocess_data(set_name=set_name,file_dir_list=a_process_filenames, builder=builder,
                                 tokenizer=tokenizer, cache_lines_num=cache_lines_num,process_idx=0)
-            else:
-                raise NameError(f"not have this set {set_name}")
             print(f"all chunks: {builder._counter}  all tokens: {builder.all_tokens}...")
             # 将cache里边剩余的内容写入
             builder.write_reminder()
@@ -177,18 +191,25 @@ def prepare_full(
                                                      tokenizer, cache_lines_num, process_idx))) 
             [p.start() for p in process_list]
             [p.join() for p in process_list]
+            all_tokens = 0
             for b in  builder_list:
                 b.write_reminder()
+                print(f"{b._prefix} have {b._counter} files {b.all_tokens} tokens")
+                all_tokens += b.all_tokens
                 
-            for b in builder_list:
-                print(f"{b.prefix} have {b._counter} files {b.all_tokens} tokens")
-        print(f"processed set_name {set_name} cost {time.time()-t0}")
+        print(f"processed set_name {set_name} cost {time.time()-t0} all_tokens{all_tokens}")
 
+
+filename_sets = {
+    # "sky": "data/step0_raw/sky/data/*jsonl",
+    "wanjuan_zh": "data/step2_data_cleaning/wanjuan/wanjuan_zh/*jsonl",
+    # "wanjuan_en": "data/step2_data_cleaning/wanjuan/wanjuan_en/*jsonl"
+}
 def prepare(
     source_path: Path = Path("/"),
     # tokenizer地址
     checkpoint_dir: Path = Path("/hoe/test/gqs/Steel-LLM/model/qwen_moe"),
-    destination_path: Path = Path("/data/pretrain_input/sky"),
+    destination_path: Path = Path("/data/step3_train_input/wanjuan_zh"),
     sample: bool = False,
     match: str = "",
     max_files = 10000000000,
@@ -196,7 +217,7 @@ def prepare(
     block_size = 2048,
     # 一个数据分片有多少个序列
     # blocks_in_a_chunck=1024时，一个chunk是8M大小 
-    blocks_in_a_chunck = 2048*200,
+    blocks_in_a_chunck = 1024*200,
     # 读取cache_lines_num行json数据后进行一次保存
     cache_lines_num = 10000,
     # 处理数据进程数
