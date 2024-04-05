@@ -9,6 +9,7 @@ import pandas as pd
 import pyarrow.parquet as pq
 import pyarrow as pa
 import traceback
+from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
 
 class FormatHandler():
@@ -82,9 +83,34 @@ class FormatHandler():
         # 4. 去除\r（针对 baidu_QA）
         line = line.replace("\r", "")
         # 5. 替换\n
-        line = line.replace("\n\n", "\n")
+        # line = line.replace("\n\n", "\n")
         return line
-
+    
+    def qa2txt(self, question: str, answer: str, mode: str = "qwen"):
+        """将对话转换为txt文本"""
+        if mode == "default":
+            return "问题：\n{}\n回答：\n{}".format(question, answer)
+        elif mode == "simple":
+            return "{}：{}".format(question, answer)
+        elif mode == "qwen":
+            return "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n" + \
+                "<|im_start|>user\n{}<|im_end|>\n".format(question) + \
+                "<|im_start|>assistant\n{}<|im_end|>".format(answer)
+        
+    def multi_qa2txt(self, question: List[str], answer: List[str], mode="qwen"):
+        """将对话转换为txt文本。针对多轮对话。"""
+        if mode == "default":
+            pass
+        elif mode == "simple":
+            pass
+        elif mode == "qwen":
+            res = "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
+            length = min(len(question), len(answer))
+            for i in range(length):
+                res += "<|im_start|>user\n{}<|im_end|>\n".format(question[i]) + \
+                       "<|im_start|>assistant\n{}<|im_end|>\n".format(answer[i])
+            return res
+        
 
 class BaiduBaikeFormatHandler(FormatHandler):
     """example data
@@ -122,8 +148,7 @@ class BaiduQAFormatHandler(FormatHandler):
         data = json.loads(line)
         title = self.zh_process(data["title"])
         answer = self.zh_process(data["answer"])
-        # text = title + "：" + answer  # todo, 其实title末尾可能已经有标点符号了。
-        text = "问题：\n{}\n回答：\n{}".format(title, answer)
+        text = self.qa2txt(title, answer, "qwen")
         
         if not self.quality_assurance(text): # todo 质量筛选
             return False
@@ -167,18 +192,18 @@ class BELLEConversationsFormatHandler(FormatHandler):
 
     def process_one_line(self, line, fout) -> bool:
         text_list = []
-        text_list.append("以下是一些对话：")
+        # text_list.append("以下是一些对话：")
         data = json.loads(line)
         conversations = data["conversations"]
         temp_pair = ""
+        q_list = []
+        a_list = []
         for index, item in enumerate(conversations):
             if index % 2 == 0 and item["from"] == "human":
-                temp_pair += "问题：\n{}\n".format(self.zh_process(item["value"]))
+                q_list.append(self.zh_process(item["value"]))
             elif index % 2 == 1 and item["from"] == "assistant":
-                temp_pair += "回答：\n{}".format(self.zh_process(item["value"]))
-                text_list.append(temp_pair)
-                temp_pair = ""
-        text = "\n".join(text_list)
+                a_list.append(self.zh_process(item["value"]))
+        text = self.multi_qa2txt(q_list, a_list)
         if not self.quality_assurance(text):
             return False
         d = {"text": text}
@@ -201,7 +226,9 @@ class FireflyFormatHandler(FormatHandler):
         kind = self.zh_process(data["kind"])
         input_str = self.zh_process(data["input"])
         target_str = self.zh_process(data["target"])
-        text = "\n".join(["任务类型：",kind, "问题：", input_str, "回答：", target_str])  # todo，更好的连接词？
+        # text = "\n".join(["任务类型：",kind, "问题：", input_str, "回答：", target_str])  # todo，更好的连接词？
+        text = self.qa2txt(input_str, target_str, "qwen")
+
         if not self.quality_assurance(text):
             return False
         d = {"text": text}
@@ -222,12 +249,18 @@ class MossFormatHandler(FormatHandler):
         text_list = []
         category = data["category"]
         conversation = data["conversation"]
-        text_list.append("以下是一组任务类型为{}并且话题相关的对话：".format(category))
+        q_list = []
+        a_list = []
         for temp in conversation:
-            q = self.zh_process(temp["human"])
-            a = self.zh_process(temp["assistant"])
-            text_list.append("问题：\n{}\n回答：{}".format(q, a))
-        text = "\n".join(text_list)
+            q_list.append(self.zh_process(temp["human"]))
+            a_list.append(self.zh_process(temp["assistant"]))
+        text = self.multi_qa2txt(q_list, a_list)
+        # text_list.append("以下是一组任务类型为{}并且话题相关的对话：".format(category))
+        # for temp in conversation:
+        #     q = self.zh_process(temp["human"])
+        #     a = self.zh_process(temp["assistant"])
+        #     text_list.append("问题：\n{}\n回答：{}".format(q, a))
+        # text = "\n".join(text_list)
         if not self.quality_assurance(text):
             return False
         d = {"text": text}
@@ -307,6 +340,7 @@ class ZhihuFormatHandler(FormatHandler):
         files = os.listdir(self.input_path)
         files = [i for i in files if ".parquet" in i]
         return files
+
     def process_one_file(self, file_path):
         line_count = 0
         jump_count = 0
@@ -332,7 +366,7 @@ class ZhihuFormatHandler(FormatHandler):
                 if upvotes < 100:  # 只选择高赞回答。
                     jump_count += 1
                     continue
-                text = self.zh_process("\n".join(["问题：", instruction[i], "回答：", response[i]]))
+                text = (self.qa2txt(self.zh_process(instruction[i]), self.zh_process(response[i]), "qwen"))
                 if not self.quality_assurance(text):
                     jump_count += 1
                     continue
@@ -411,7 +445,8 @@ class StarcodeFormatHandler(FormatHandler):
 
 def test_run():
     """简单测试"""
-    script_directory = os.path.dirname(os.path.realpath(__file__))
+    # script_directory = os.path.dirname(os.path.realpath(__file__))
+    script_directory = "/Users/bytedance/Documents/codes/llm/Steel-LLM/data"
     os.chdir(script_directory)
     output_path_root = script_directory + "/output"
     if not os.path.exists(output_path_root):
