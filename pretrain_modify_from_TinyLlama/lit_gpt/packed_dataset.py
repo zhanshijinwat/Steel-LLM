@@ -119,6 +119,7 @@ class PackedDatasetBuilder(object):
         self._idx += arr_len
 
     def write_reminder(self):
+        print(f"{self._prefix} remind {self._idx} part size{self._chunk_size} used {self._idx/self._chunk_size}")
         self._write_chunk()
 
 

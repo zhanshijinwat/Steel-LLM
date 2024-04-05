@@ -116,6 +116,12 @@ def multiprocess_data(set_name, file_dir_list, builder, tokenizer, cache_lines_n
             else:
                 raise NameError(f"not have this set {set_name}")
             print(f"process {process_idx} end a file {file_dir} cost {time.time()-t0}s")
+        print(f"{builder._prefix} have {builder._counter+1} files {builder.all_tokens} tokens")
+        if builder._idx/builder._chunk_size > 0.05:
+            builder.write_reminder()
+        else:
+            print(f"remind part is too small {builder._idx/builder._chunk_size}")
+
     except Exception  as e:
         print(f"multiprocess error:  {str(e)}")
 
@@ -142,6 +148,7 @@ def prepare_full(
         
         # 先排序再shuffle，保证每次数据处理顺序
         filenames = glob.glob(os.path.join(source_path, pattern), recursive=True)
+        process_num = min(process_num, len(filenames))
         filenames = sorted(filenames)
         random.shuffle(filenames)
         print(filenames)
@@ -191,13 +198,8 @@ def prepare_full(
                                                      tokenizer, cache_lines_num, process_idx))) 
             [p.start() for p in process_list]
             [p.join() for p in process_list]
-            all_tokens = 0
-            for b in  builder_list:
-                b.write_reminder()
-                print(f"{b._prefix} have {b._counter} files {b.all_tokens} tokens")
-                all_tokens += b.all_tokens
                 
-        print(f"processed set_name {set_name} cost {time.time()-t0} all_tokens{all_tokens}")
+        print(f"processed set_name {set_name} cost {time.time()-t0}")
 
 
 filename_sets = {
@@ -221,7 +223,7 @@ def prepare(
     # 读取cache_lines_num行json数据后进行一次保存
     cache_lines_num = 10000,
     # 处理数据进程数
-    process_num = 32
+    process_num = 64
 
 
 ) -> None:
