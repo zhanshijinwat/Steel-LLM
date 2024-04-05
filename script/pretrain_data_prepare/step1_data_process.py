@@ -461,6 +461,7 @@ def main_run():
         "zhihu": (input_path_root + "/zhihu/data", ZhihuFormatHandler),
         "wiki_cn": (input_path_root + "/wiki_cn", WikiCNFormatHandler)
     }
+    dataset_process_info = {}
 
     for dataset_name, info in dataset_process_info.items():
         input_path = info[0]
