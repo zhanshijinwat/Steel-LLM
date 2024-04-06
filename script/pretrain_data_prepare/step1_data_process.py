@@ -95,7 +95,7 @@ class FormatHandler():
         elif mode == "qwen":
             return "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n" + \
                 "<|im_start|>user\n{}<|im_end|>\n".format(question) + \
-                "<|im_start|>assistant\n{}<|im_end|>".format(answer)
+                "<|im_start|>assistant\n{}".format(answer)
         
     def multi_qa2txt(self, question: List[str], answer: List[str], mode="qwen"):
         """将对话转换为txt文本。针对多轮对话。"""
@@ -106,9 +106,11 @@ class FormatHandler():
         elif mode == "qwen":
             res = "<|im_start|>system\nYou are a helpful assistant.<|im_end|>\n"
             length = min(len(question), len(answer))
+            # assert len(question) == len(answer)
             for i in range(length):
                 res += "<|im_start|>user\n{}<|im_end|>\n".format(question[i]) + \
                        "<|im_start|>assistant\n{}<|im_end|>\n".format(answer[i])
+            res = res.strip("<|im_end|>\n")
             return res
         
 
@@ -445,10 +447,10 @@ class StarcodeFormatHandler(FormatHandler):
 
 def test_run():
     """简单测试"""
-    # script_directory = os.path.dirname(os.path.realpath(__file__))
-    script_directory = "../../data"
-    os.chdir(script_directory)
-    output_path_root = script_directory + "/output"
+    script_directory = os.path.dirname(os.path.realpath(__file__))
+    work_directory = script_directory + "/../../data"
+    os.chdir(work_directory)
+    output_path_root = work_directory + "/output"
     if not os.path.exists(output_path_root):
         os.makedirs(output_path_root)
     
