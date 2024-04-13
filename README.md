@@ -31,7 +31,7 @@ https://www.zhihu.com/people/a-xun-58-5
 
 
 ## 🤖 预训练
-### 数据收集与处理
+### 数据收集
 使用的数据集和链接如下所示，更详细的介绍请看**此篇文章**
 
 - [Skywork/Skypile-150B数据集](https://huggingface.co/datasets/Skywork/SkyPile-150B/tree/main/data)
@@ -45,7 +45,12 @@ https://www.zhihu.com/people/a-xun-58-5
 - [firefly1.1M](https://hf-mirror.com/datasets/YeungNLP/firefly-train-1.1M)
 - [starcoder](https://hf-mirror.com/datasets/bigcode/starcoderdata)
 
-数据处理流程图
+### 数据处理
+#### 格式转化
+
+#### data-juicer数据处理
+
+#### 生成最终用于训练的bin格式
 
 
 ### tokenizer
