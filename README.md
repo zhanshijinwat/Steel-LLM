@@ -6,7 +6,7 @@
 
 
 ## 👋 介绍
-Steel-LLM是一个从0开始预训练中文大模型的项目。我们的目标是使用1T+的数据预训练一个1B左右参数量的中文LLM，对标TinyLlama。项目持续更新，维持3个月左右。我们会分享数据收集、数据处理、预训练框架选择、模型设计等全过程，并开源全部代码。让每个人在有8~几十张卡的情况下都能复现我们的工作。
+Steel-LLM是一个从0开始预训练中文大模型的项目。我们的目标是使用1T+的数据预训练一个1B左右参数量的中文LLM，对标TinyLlama。项目持续更新，维持3个月+。我们会分享数据收集、数据处理、预训练框架选择、模型设计等全过程，并开源全部代码。让每个人在有8~几十张卡的情况下都能复现我们的工作。
 <div align="center">
   <img src=".github/steel.png" width="200"/>
 </div>
@@ -19,7 +19,9 @@ Steel-LLM是一个从0开始预训练中文大模型的项目。我们的目标�
 （上传的数据内容请遵守各项法规）
 
 ### 更新
+[2024/4/14] doing: 模型结构构思与预训练代码修改...
 
+[2024/4/14] 完成数据收集与处理，生成预训练程序所需要的bin文件（存储内容为token id）
 
 ### 技术分享
 zhanshijin的知乎：https://www.zhihu.com/people/zhan-shi-jin-27
@@ -29,7 +31,7 @@ https://www.zhihu.com/people/a-xun-58-5
 
 
 ## 🤖 预训练
-### 数据收集
+### 数据收集与处理
 使用的数据集和链接如下所示，更详细的介绍请看**此篇文章**
 
 - [Skywork/Skypile-150B数据集](https://huggingface.co/datasets/Skywork/SkyPile-150B/tree/main/data)
@@ -43,6 +45,8 @@ https://www.zhihu.com/people/a-xun-58-5
 - [firefly1.1M](https://hf-mirror.com/datasets/YeungNLP/firefly-train-1.1M)
 - [starcoder](https://hf-mirror.com/datasets/bigcode/starcoderdata)
 
+数据处理流程图
+
 
 ### tokenizer
 不单独训练tokenizer，初步决定使用Qwen的tokenizer
@@ -51,7 +55,7 @@ https://www.zhihu.com/people/a-xun-58-5
 👷 待定，施工中...
 
 ### 预训框架
-👷 施工中... 主要在TinyLlama项目上进行修改，目前已完成多进程加速将原始文本token化并存储到bin文件中的工作。
+👷 施工中... 主要基于TinyLlama项目上进行修改
 
 ### 硬件资源
 GPU：8* A100 80G

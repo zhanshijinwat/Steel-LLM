@@ -2,3 +2,5 @@
 mistral
 model
 script/output/*
+*pycache*
+*.pyc
