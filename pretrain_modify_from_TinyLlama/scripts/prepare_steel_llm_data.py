@@ -204,14 +204,14 @@ def prepare_full(
 
 filename_sets = {
     # "sky": "data/step0_raw/sky/data/*jsonl",
-    "wanjuan_zh": "data/step2_data_cleaning/wanjuan/wanjuan_zh/*jsonl",
-    # "wanjuan_en": "data/step2_data_cleaning/wanjuan/wanjuan_en/*jsonl"
+    # "wanjuan_zh": "data/step2_data_cleaning/wanjuan/wanjuan_zh/*jsonl",
+    "wanjuan_en": "data/step2_data_cleaning/wanjuan/wanjuan_en/*jsonl"
 }
 def prepare(
     source_path: Path = Path("/"),
     # tokenizer地址
     checkpoint_dir: Path = Path("/hoe/test/gqs/Steel-LLM/model/qwen_moe"),
-    destination_path: Path = Path("/data/step3_train_input/wanjuan_zh"),
+    destination_path: Path = Path("/hoe/test/gqs/data/step3_train_input/wanjuan_en"),
     sample: bool = False,
     match: str = "",
     max_files = 10000000000,
