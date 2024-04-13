@@ -433,7 +433,7 @@ class StarcodeFormatHandler(FormatHandler):
                     stars = 0
                     # print("[exception][{}] process max_stars_count failed: line {} : {}".format(self.dataset_name, max_stars_count, e))
                     # print("",traceback.format_exc())
-                if stars < 3:  # 只选择高星代码
+                if stars < 0:  # 只选择高星代码
                     jump_count += 1
                     continue
                 text = content[i]
