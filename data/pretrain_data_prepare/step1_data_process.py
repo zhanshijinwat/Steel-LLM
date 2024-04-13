@@ -167,6 +167,8 @@ class BELLEFormatHandler(FormatHandler):
 
     def process_one_line(self, line, fout) -> bool:
         data = json.loads(line)
+        if "instruction" not in data:
+            return False
         instruction = self.zh_process(data["instruction"])
         output = self.zh_process(data["output"])
         text = instruction + "\n" + output # todo: 更好的连接词？
@@ -196,6 +198,8 @@ class BELLEConversationsFormatHandler(FormatHandler):
         text_list = []
         # text_list.append("以下是一些对话：")
         data = json.loads(line)
+        if "conversations" not in data:
+            return False
         conversations = data["conversations"]
         temp_pair = ""
         q_list = []
@@ -448,7 +452,7 @@ class StarcodeFormatHandler(FormatHandler):
 def test_run():
     """简单测试"""
     script_directory = os.path.dirname(os.path.realpath(__file__))
-    work_directory = script_directory + "/../"
+    work_directory = script_directory + "/../download_data/"
     os.chdir(work_directory)
     output_path_root = work_directory + "/output"
     if not os.path.exists(output_path_root):
@@ -467,6 +471,8 @@ def test_run():
 
     for dataset_name, Handler in dataset_handler.items():
         input_path = dataset_name
+        if dataset_name == "BELLE_conversations":
+            input_path = "BELLE"
         output_path = output_path_root + "/processed_{}.jsonl".format(dataset_name)
         if os.path.exists(output_path):
             os.remove(output_path)
