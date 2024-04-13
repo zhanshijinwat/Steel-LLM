@@ -448,7 +448,7 @@ class StarcodeFormatHandler(FormatHandler):
 def test_run():
     """简单测试"""
     script_directory = os.path.dirname(os.path.realpath(__file__))
-    work_directory = script_directory + "/../../data"
+    work_directory = script_directory + "/../"
     os.chdir(work_directory)
     output_path_root = work_directory + "/output"
     if not os.path.exists(output_path_root):
