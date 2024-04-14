@@ -1,4 +1,4 @@
-DJ_PATH=/hoe/test/lishu/data-juicer
+DJ_PATH=path_to_datajuice...
 CODE_YAML=steel_project_starcode.yaml
 TXT_YAML=steel_project_txt.yaml
 
