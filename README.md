@@ -53,7 +53,7 @@ https://www.zhihu.com/people/a-xun-58-5
 #### 生成最终用于训练的bin格式
 需要先在代码中修改filename_sets，指定数据路径：
 
-`python pretrain_modify_from_TinyLlama/scripts`
+`python pretrain_modify_from_TinyLlama/scripts/prepare_steel_llm_data.py`
 
 输入数据格式为：包含'text'字段的jsonl文件
 
