@@ -43,6 +43,7 @@ class PackedDataset(IterableDataset):
         worker_id = worker_info.id if worker_info is not None else 0
         num_shards = num_workers * self._num_processes
         shard_id = self._process_rank * num_workers + worker_id
+        raise NameError("print look")
 
         max_num_files = len(self._filenames) // num_shards * num_shards
         filenames = self._filenames[shard_id:max_num_files:num_shards]
@@ -172,6 +173,7 @@ class PackedDatasetIterator:
         self._mmaps = []
         self._buffers = []
 
+        # 无限循环读取
         if self._n_chunks > len(self._filenames[self._file_idx :]):
             # if not self._wrap:
             #     raise StopIteration
@@ -188,8 +190,10 @@ class PackedDatasetIterator:
             self._buffers.append(memoryview(mmap))
 
         self._file_idx += self._n_chunks
+        # n个chuncks里边一共有多少个句子
         n_all_blocks = self._n_chunks * self._n_blocks
 
+        # 需要保持随机数状态
         self._block_idxs = self._rng.permutation(n_all_blocks) if self._shuffle else range(n_all_blocks)
 
         self._curr_idx = 0

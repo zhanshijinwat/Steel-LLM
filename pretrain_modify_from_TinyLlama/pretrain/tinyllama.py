@@ -85,7 +85,6 @@ def setup(
 ) -> None:
     precision = precision or get_default_supported_precision(training=True, tpu=tpu)
     print(precision)
-    raise
     if devices > 1:
         if tpu:
             # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
@@ -152,6 +151,7 @@ def main(fabric, train_data_dir, val_data_dir, resume):
 
     if resume is True:
         resume = sorted(out_dir.glob("*.pth"))[-1]
+    # todo dataloader resume 
     if resume :
         fabric.print(f"Resuming training from {resume}")
         fabric.load(resume, state)
