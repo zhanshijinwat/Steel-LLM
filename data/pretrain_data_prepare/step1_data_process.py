@@ -2,12 +2,8 @@
 import os
 import json
 import time
-from tqdm import tqdm
 import unicodedata
-import numpy as np
-import pandas as pd
 import pyarrow.parquet as pq
-import pyarrow as pa
 import traceback
 from typing import Any, Dict, List, NamedTuple, Optional, Sequence, Tuple, Union
 
@@ -34,7 +30,6 @@ class FormatHandler():
         jump_count = 0
         with open(self.output_path, "a") as fout:
             with open(self.input_path + "/" + file_path, "r", encoding="utf-8") as fin:
-                # for line in tqdm(fin):
                 for line in fin:
                     line_count += 1
                     self.process_one_line(line, fout)
@@ -47,7 +42,6 @@ class FormatHandler():
         jump_count_all = 0
         file_list = self.get_file_list()
         print("[log][{}] number of files is {:d}".format(self.dataset_name, len(file_list)))
-        # for file in tqdm(file_list):
         for file in file_list:
             line_count, jump_count = 0, 0
             try:
@@ -295,7 +289,6 @@ class WikiCNFormatHandler(FormatHandler):
         with open(self.output_path, "a") as fout:
             with open(self.input_path + "/" + file_path, "r", encoding="utf-8") as fin:
                 data = json.load(fin)
-                # for item in tqdm(data):
                 for item in data:
                     line_count += 1
                     if not self.quality_assurance(self.zh_process(item["completion"])):
