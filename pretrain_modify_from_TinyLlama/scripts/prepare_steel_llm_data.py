@@ -20,50 +20,6 @@ import time
 filenames_sample = []
 # key: name value: dir
 
-def prepare_sample(
-    source_path: Path, checkpoint_dir: Path, destination_path: Path, chunk_size: int, match: str = ""
-) -> None:
-    raise NotImplementedError("not modify prepare_sample...")
-    """Prepare the "Red Pajama" dataset using the original tokenizer."""
-    destination_path.mkdir(parents=True, exist_ok=True)
-
-    tokenizer = Tokenizer(checkpoint_dir)
-
-    for name in filenames_sample:
-        if match and match not in name:
-            continue
-
-        filepath = source_path / name
-
-        if not filepath.is_file():
-            raise RuntimeError(
-                f"Input file not found at {filepath}. \nMake sure you download the data, e.g. wget -i"
-                " https://data.together.xyz/redpajama-data-1T/v1.0.0/urls.txt or through"
-                " \nhttps://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T"
-                " \nhttps://huggingface.co/datasets/togethercomputer/RedPajama-Data-1T-Sample \n"
-            )
-
-        prefix, _ = os.path.splitext(name)
-
-        builder = packed_dataset.PackedDatasetBuilder(
-            outdir=destination_path,
-            prefix=prefix,
-            chunk_size=chunk_size,
-            sep_token=tokenizer.eos_id,
-            dtype="auto",
-            vocab_size=tokenizer.vocab_size,
-        )
-
-        print(f"Processing {name}")
-
-        with open(filepath, encoding="utf-8") as f:
-            for row in tqdm(f):
-                text = json.loads(row)["text"]
-                text_ids = tokenizer.encode(text)
-                builder.add_array(np.array(text_ids, dtype=builder.dtype))
-
-        builder.write_reminder()
-
 def process_line_text(text, tokenizer):
     t1 = time.time()
     text_ids = tokenizer.encode(text)
@@ -228,7 +184,7 @@ def prepare(
 
 ) -> None:
     """Prepare the SteelLLM dataset. We assume tokenizer has been trained."""
-    prepare_fn = prepare_sample if sample else prepare_full
+    prepare_fn = prepare_full
     prepare_fn(
         source_path=source_path,
         checkpoint_dir=checkpoint_dir,
