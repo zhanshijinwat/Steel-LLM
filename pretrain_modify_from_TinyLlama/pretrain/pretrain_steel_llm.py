@@ -5,33 +5,43 @@ import time
 from pathlib import Path
 from typing import Optional, Tuple, Union
 import math
+import os
 import lightning as L
 import torch
-from lightning.fabric.strategies import FSDPStrategy, XLAStrategy
+from lightning.fabric.strategies import FSDPStrategy
 from torch.utils.data import DataLoader
 from functools import partial
 # support running without installing as a package
 wd = Path(__file__).parent.parent.resolve()
 sys.path.append(str(wd))
 # from apex.optimizers import FusedAdam #torch optimizer has a cuda backend, which is faster actually
-from lit_gpt.model import GPT, Block, Config, CausalSelfAttention
+from lit_gpt.model import Block, Config, CausalSelfAttention
+from transformers import AutoConfig, AutoModelForCausalLM
 from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
 from lit_gpt.speed_monitor import SpeedMonitorFabric as Monitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger, lazy_load
 from pytorch_lightning.loggers import WandbLogger
+# todo 安装环境用这个loss
 from lit_gpt import FusedCrossEntropyLoss
 import random
+from loguru import logger
+current_file_path = os.path.abspath(__file__)
+current_dir = os.path.dirname(current_file_path)
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(os.path.join(parent_dir, "model", "qwen_1_1_8B_chat"))
+from modeling_qwen import QWenLMHeadModel, QWenBlock
+from steel_llm_utils import compatible_tiny_llama_config
 
-model_name = "tiny_LLaMA_1b"
-name = "tinyllama_1b"
+model_name = "steel_llm_test_qwen1"
+name = "test"
 out_dir = Path("out") / name
 
 # Hyperparameters
 num_of_devices = 8
-global_batch_size = 512
+global_batch_size = 256
 learning_rate = 4e-4
-micro_batch_size = 8
+micro_batch_size = 4
 max_step = 715256 * 2
 warmup_steps = 2000
 log_step_interval = 10
@@ -61,9 +71,9 @@ log_iter_interval = log_step_interval * gradient_accumulation_steps
 
 
 # Treat all dataset equally by their size. If you want to use a different weight for a dataset, add it to the list with the weight.
+# 数据根目录下的文文件名开头，""为匹配所有文件
 train_data_config = [
-    ("train_slim", 0.693584),
-    ("train_star", 0.306416),
+    ("", 0.693584),
 ]
 
 val_data_config = [
@@ -76,44 +86,48 @@ wandb_logger = WandbLogger()
 
 
 def setup(
-    devices: int = 8,
-    train_data_dir: Path = Path("data/redpajama_sample"),
+    devices: int = num_of_devices,
+    train_data_dir: Path = Path("/data/step3_train_input/sky"),
     val_data_dir: Optional[Path] = None,
     precision: Optional[str] = None,
-    tpu: bool = False,
     resume: Union[bool, Path] = False,
+    model_path = "/hoe/test/gqs/Steel-LLM/model/qwen_1_1_8B_chat",
+    # num/None
+    block_size = 2048,
 ) -> None:
-    precision = precision or get_default_supported_precision(training=True, tpu=tpu)
+    precision = precision or get_default_supported_precision(training=True, tpu=False)
     print(precision)
-    if devices > 1:
-        if tpu:
-            # For multi-host TPU training, the device count for Fabric is limited to the count on a single host.
-            devices = "auto"
-            strategy = XLAStrategy(sync_module_states=False)
-        else:
-            strategy = FSDPStrategy(
-                auto_wrap_policy={Block},
-                activation_checkpointing_policy=None,
-                state_dict_type="full",
-                limit_all_gathers=True,
-                cpu_offload=False,
-            )
+    config = AutoConfig.from_pretrained(model_path,trust_remote_code=True)
+    print(config)
+    if devices > 1: 
+        # todo: check param
+        strategy = FSDPStrategy(
+            auto_wrap_policy={QWenBlock},
+            activation_checkpointing_policy=None,
+            state_dict_type="full",
+            limit_all_gathers=True,
+            cpu_offload=False,
+        )
     else:
         strategy = "auto"
-
     fabric = L.Fabric(devices=devices, strategy=strategy, precision=precision, loggers=[logger, wandb_logger])
     fabric.print(hparams)
-    #fabric.launch(main, train_data_dir, val_data_dir, resume)
-    main(fabric, train_data_dir, val_data_dir, resume)
+    # 添加其他参数
+    config.model_path = model_path
+    config = compatible_tiny_llama_config(config, block_size)
+    # todo: why not use?
+    if devices > 1:
+        fabric.launch(main, train_data_dir, val_data_dir, resume, config)
+    else:
+        main(fabric, train_data_dir, val_data_dir, resume, config)
 
 
-def main(fabric, train_data_dir, val_data_dir, resume):
+def main(fabric, train_data_dir, val_data_dir, resume,config):
     monitor = Monitor(fabric, window_size=2, time_unit="seconds", log_iter_interval=log_iter_interval)
 
     if fabric.global_rank == 0:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    config = Config.from_name(model_name)
 
     train_dataloader, val_dataloader = create_dataloaders(
         batch_size=micro_batch_size,
@@ -123,6 +137,7 @@ def main(fabric, train_data_dir, val_data_dir, resume):
         val_data_dir=val_data_dir,
         seed=3407,
     )
+    print("finish load data index...") 
     if val_dataloader is None:
         train_dataloader = fabric.setup_dataloaders(train_dataloader)
     else:
@@ -133,17 +148,32 @@ def main(fabric, train_data_dir, val_data_dir, resume):
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
-        model = GPT(config)
-        model.apply(partial(model._init_weights ,n_layer=config.n_layer))
- 
-
+        model = QWenLMHeadModel(config)
+        print(model.transformer.wte)
+        model.apply(model._init_weights) 
+        print(model.transformer.wte)
+    
+    # 预估参数量和计算量
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
+    with torch.device("meta"):
+        meta_model = QWenLMHeadModel(config)
+        # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
+        # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
+        # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
+        estimated_flops = estimate_flops(meta_model) * micro_batch_size
+        config.estimated_flops = estimated_flops
+        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
+        x = torch.randint(0, 1, (micro_batch_size, config.block_size))
+        # measured_flos run in meta. Will trigger fusedRMSNorm error
+        #measured_flops = measure_flops(meta_model, x)
+        #fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
+        del meta_model, x
 
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
-    )
+    ) 
     # optimizer = FusedAdam(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2),adam_w_mode=True)
     optimizer = fabric.setup_optimizers(optimizer)
 
@@ -157,44 +187,25 @@ def main(fabric, train_data_dir, val_data_dir, resume):
         fabric.load(resume, state)
 
     train_time = time.perf_counter()
-    train(fabric, state, train_dataloader, val_dataloader, monitor, resume)
+    train(fabric, state, train_dataloader, val_dataloader, monitor, resume, config)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
-def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
+def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, config):
     model = state["model"]
     optimizer = state["optimizer"]
 
     if val_dataloader is not None:
         validate(fabric, model, val_dataloader)  # sanity check
 
-    with torch.device("meta"):
-        meta_model = GPT(model.config)
-        # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
-        # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
-        # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
-        estimated_flops = estimate_flops(meta_model) * micro_batch_size
-        fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
-        x = torch.randint(0, 1, (micro_batch_size, model.config.block_size))
-        # measured_flos run in meta. Will trigger fusedRMSNorm error
-        #measured_flops = measure_flops(meta_model, x)
-        #fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
-        del meta_model, x
 
     total_lengths = 0
     total_t0 = time.perf_counter()
-
-    if fabric.device.type == "xla":
-        import torch_xla.core.xla_model as xm
-
-        xm.mark_step()
-    
     
     initial_iter = state["iter_num"]
-    curr_iter = 0
-            
+    curr_iter = 0 
     loss_func = FusedCrossEntropyLoss()
     for  train_data in train_dataloader:
         # resume loader state. This is not elegant but it works. Should rewrite it in the future.
@@ -221,7 +232,9 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
         targets = train_data[:, 1 : model.config.block_size + 1].contiguous()
         is_accumulating = (state["iter_num"] + 1) % gradient_accumulation_steps != 0
         with fabric.no_backward_sync(model, enabled=is_accumulating):
-            logits = model(input_ids)
+            output = model(input_ids)
+            logits = output.logits
+            print(logits.shape)
             loss = loss_func(logits, targets)
             # loss = chunked_cross_entropy(logits, targets, chunk_size=0)
             fabric.backward(loss / gradient_accumulation_steps)
@@ -231,8 +244,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
             optimizer.step()
             optimizer.zero_grad()
             state["step_count"] += 1
-        elif fabric.device.type == "xla":
-            xm.mark_step()
+        
         state["iter_num"] += 1
         # input_id: B L 
         total_lengths += input_ids.size(1)
@@ -251,7 +263,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume):
             # this assumes that device FLOPs are the same and that all devices have the same batch size
             fabric.world_size,
             state["step_count"],
-            flops_per_batch=estimated_flops,
+            flops_per_batch=config.estimated_flops,
             lengths=total_lengths,
             train_loss = loss.item()
         )
@@ -289,8 +301,8 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
         logits = model(input_ids)
         loss = chunked_cross_entropy(logits, targets, chunk_size=0)
 
-        # loss_func = FusedCrossEntropyLoss()
-        # loss = loss_func(logits, targets)
+        loss_func = FusedCrossEntropyLoss()
+        loss = loss_func(logits, targets)
         losses[k] = loss.item()
         
     out = losses.mean()
@@ -306,6 +318,8 @@ def create_dataloader(
     data_config = train_data_config if split == "train" else val_data_config
     for prefix, _ in data_config:
         filenames = sorted(glob.glob(str(data_dir / f"{prefix}*")))
+        print(str(data_dir / f"{prefix}*"))
+        print(filenames) 
         random.seed(seed)
         random.shuffle(filenames)
 

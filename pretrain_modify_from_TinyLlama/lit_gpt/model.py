@@ -12,8 +12,8 @@ from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import Self
 from flash_attn import flash_attn_func
 from lit_gpt.config import Config
-from xformers.ops import SwiGLU
-from .fused_rotary_embedding import apply_rotary_emb_func
+# from xformers.ops import SwiGLU
+# from .fused_rotary_embedding import apply_rotary_emb_func
 RoPECache = Tuple[torch.Tensor, torch.Tensor]
 KVCache = Tuple[torch.Tensor, torch.Tensor]
 FlashAttention2Available = RequirementCache("flash-attn>=2.0.0.post1")

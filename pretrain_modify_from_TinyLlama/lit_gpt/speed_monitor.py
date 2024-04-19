@@ -9,7 +9,7 @@ from lightning.fabric.utilities.rank_zero import rank_zero_only as fabric_rank_z
 from lightning.pytorch.utilities.rank_zero import rank_zero_only as trainer_rank_zero_only
 from torch.utils.flop_counter import FlopCounterMode
 import math
-from lit_gpt import GPT, Config
+from lit_gpt import Config
 from lit_gpt.utils import num_parameters
 
 GPU_AVAILABLE_FLOPS = {
@@ -376,7 +376,7 @@ def flops_per_param(config: Config, n_params: int) -> int:
     return flops_per_seq + attn_flops_per_seq
 
 
-def estimate_flops(model: GPT) -> int:
+def estimate_flops(model) -> int:
     """Measures estimated FLOPs for MFU.
 
     Refs:
@@ -398,7 +398,7 @@ def estimate_flops(model: GPT) -> int:
     return ops_per_step * trainable_flops + frozen_ops_per_step * frozen_flops
 
 
-def measure_flops(model: GPT, x: torch.Tensor) -> int:
+def measure_flops(model, x: torch.Tensor) -> int:
     """Measures real FLOPs for HFU"""
     flop_counter = FlopCounterMode(model, display=False)
     ctx = nullcontext() if model.training else torch.no_grad()

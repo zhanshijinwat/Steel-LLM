@@ -4,3 +4,6 @@ model
 script/output/*
 *pycache*
 *.pyc
+*wandb*
+pretrain_modify_from_TinyLlama/pretrain/out/*
+data/download_data/output/*
