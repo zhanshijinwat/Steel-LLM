@@ -77,7 +77,7 @@ class PackedDataset(IterableDataset):
                 worker_add_data_hash_file_map = None
             logging.debug(f"worker_add_data_hash_file_map:{worker_add_data_hash_file_map} \n \
                       len of worker_add_data_hash_file_map: {len(worker_add_data_hash_file_map)}")
-        print(worker_add_data_hash_file_map)
+        logging.info(f"PackedDataset __iter__: \n {worker_add_data_hash_file_map}")
  
         
         logging.debug(f"worker_hash_file_map:{worker_hash_file_map} \n len of worker_hash_file_map: {len(worker_hash_file_map)}")
@@ -199,9 +199,10 @@ class PackedDatasetIterator:
             self._load_n_chunks()
         else:
             self.load_pikle(load_dir=packdata_ckpt_dir)
-            print(add_data_hash_file_map)
+            logging.info(f"add_data_hash_file_map: {add_data_hash_file_map}")
             if add_data_hash_file_map is not None:
                 self.add_new_data(add_data_hash_file_map) 
+        logging.info(f"PackedDatasetIterator: \n {self.__dict__}") 
 
     def save_param(self, save_dir):
         save_dict = {}
@@ -242,7 +243,7 @@ class PackedDatasetIterator:
         self._file_idx -= self._n_chunks
         self.build_mem_map_and_buffer(check_hash=True)
         self._file_idx += self._n_chunks
-        logging.debug(f"load packdata param: {self.__dict__}")
+        logging.debug(f"load packdata param: \n {self.__dict__}")
 
     def add_new_data(self, add_data_hash_file_map):
         logging.info(f"add new data before: all blocks={len(self._block_idxs)}, \
@@ -255,7 +256,7 @@ class PackedDatasetIterator:
         dup_set = old_data_set.intersection(new_data_set)
         if len(dup_set) != 0:
             raise NameError("add repeated data")
-        print(self.__dict__)
+        print(f"add_new_data self.__dict__: \n {self.__dict__}")
         # 控制epoch的idx
         self._file_idx += len(add_data_hash_file_map)
         for k,v in add_data_hash_file_map.items():
@@ -425,7 +426,7 @@ def create_dataloader(
     for prefix, _ in data_config:
         hash_file_map = {}
         filenames = sorted(glob.glob(str(data_dir / f"{prefix}*")))
-        print(str(data_dir / f"{prefix}*"))
+        logging.info("create_dataloader root path: ",str(data_dir / f"{prefix}*"))
         # 计算文件hash值
         for f in filenames:
             hash = CalcMD5(f)

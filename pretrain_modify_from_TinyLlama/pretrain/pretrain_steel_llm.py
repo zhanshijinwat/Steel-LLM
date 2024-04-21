@@ -32,10 +32,22 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(os.path.join(parent_dir, "model", "qwen_1_1_8B_chat"))
 from modeling_qwen import QWenLMHeadModel, QWenBlock
 from steel_llm_utils import compatible_tiny_llama_config
+import logging
+logging.basicConfig(level=logging.DEBUG)
 
-model_name = "steel_llm_test_qwen1"
-name = "test"
+# model_name = "steel_llm_test_qwen1"
+name = "huggingface_save_8_card"
 out_dir = Path("out") / name
+TRAIN_DATA_DIR = Path("/data/step3_train_input/sky")
+# TRAIN_DATA_DIR = Path("/data/step3_train_input/test")
+MODEL_PATH = "/hoe/test/gqs/Steel-LLM/model/qwen_1_1_8B_chat"
+BLOCK_SIZE = 2048
+# bool / Path
+# RESUME = Path("./out/test_save/step-001400-iter-002800-ckpt")
+RESUME = False
+ADD_NEW_DATA_DIR = None
+# qwen moe pad_token_id
+IGNORE_INDEX = 151643
 
 # Hyperparameters
 num_of_devices = 8
@@ -43,10 +55,15 @@ global_batch_size = 256
 learning_rate = 4e-4
 micro_batch_size = 4
 max_step = 715256 * 2
-warmup_steps = 2000
+# lr scheduler
+decay_lr = True
+lr_decay_step = 100_000
+min_lr = 4e-5
+warmup_steps = 10_000
+#---
 log_step_interval = 10
-eval_iters = 100
-save_step_interval = 5000
+eval_iters = 100 # eval iter
+save_step_interval = 10
 eval_step_interval = 5000
 
 
@@ -54,8 +71,6 @@ weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0
-decay_lr = True
-min_lr = 4e-5
 
 batch_size = global_batch_size // num_of_devices
 gradient_accumulation_steps = batch_size // micro_batch_size
@@ -66,7 +81,7 @@ warmup_iters = warmup_steps * gradient_accumulation_steps
 
 
 max_iters = max_step * gradient_accumulation_steps
-lr_decay_iters = max_iters
+lr_decay_iters = lr_decay_step * gradient_accumulation_steps
 log_iter_interval = log_step_interval * gradient_accumulation_steps
 
 
@@ -87,13 +102,13 @@ wandb_logger = WandbLogger()
 
 def setup(
     devices: int = num_of_devices,
-    train_data_dir: Path = Path("/data/step3_train_input/sky"),
+    train_data_dir: Path = TRAIN_DATA_DIR,
     val_data_dir: Optional[Path] = None,
     precision: Optional[str] = None,
-    resume: Union[bool, Path] = False,
-    model_path = "/hoe/test/gqs/Steel-LLM/model/qwen_1_1_8B_chat",
+    resume: Union[bool, Path] = RESUME,
+    model_path = MODEL_PATH,
     # num/None
-    block_size = 2048,
+    block_size = BLOCK_SIZE,
 ) -> None:
     precision = precision or get_default_supported_precision(training=True, tpu=False)
     print(precision)
@@ -122,7 +137,7 @@ def setup(
         main(fabric, train_data_dir, val_data_dir, resume, config)
 
 
-def main(fabric, train_data_dir, val_data_dir, resume,config):
+def main(fabric, train_data_dir, val_data_dir, resume, config):
     monitor = Monitor(fabric, window_size=2, time_unit="seconds", log_iter_interval=log_iter_interval)
 
     if fabric.global_rank == 0:
@@ -151,10 +166,10 @@ def main(fabric, train_data_dir, val_data_dir, resume,config):
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
         model = QWenLMHeadModel(config)
-        print(model.transformer.wte)
+        # print(model.transformer.wte.weight)
         model.apply(model._init_weights) 
-        print(model.transformer.wte)
-    
+        # print(model.transformer.wte.weight)
+
     # 预估参数量和计算量
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
@@ -171,7 +186,14 @@ def main(fabric, train_data_dir, val_data_dir, resume,config):
         #measured_flops = measure_flops(meta_model, x)
         #fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
+        
+    if resume:
+        del model
+        model_path = resume / "huggingface-ckpt"
+        model = QWenLMHeadModel.from_pretrained(model_path)
+        fabric.print(f"Resuming model from {resume} success...")
 
+    huggingface_format_model = model
     model = fabric.setup(model)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
@@ -179,23 +201,23 @@ def main(fabric, train_data_dir, val_data_dir, resume,config):
     # optimizer = FusedAdam(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2),adam_w_mode=True)
     optimizer = fabric.setup_optimizers(optimizer)
 
-    state = {"model": model, "optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
+    state = {"optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
+    if resume:
+        other_param_dir = resume / "other-param-state.pth"
+        fabric.load(other_param_dir, state)
+        fabric.print(f"Resuming other-param from {resume} success...")
 
-    if resume is True:
-        resume = sorted(out_dir.glob("*.pth"))[-1]
-    # todo dataloader resume 
-    if resume :
-        fabric.print(f"Resuming training from {resume}")
-        fabric.load(resume, state)
+    state["model"] = model
+
 
     train_time = time.perf_counter()
-    train(fabric, state, train_dataloader, val_dataloader, monitor, resume, config)
+    train(fabric, state, train_dataloader, val_dataloader, monitor, resume, config, train_datasets, huggingface_format_model)
     fabric.print(f"Training time: {(time.perf_counter()-train_time):.2f}s")
     if fabric.device.type == "cuda":
         fabric.print(f"Memory used: {torch.cuda.max_memory_allocated() / 1e9:.02f} GB")
 
 
-def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, config):
+def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, config, train_datasets, huggingface_format_model):
     model = state["model"]
     optimizer = state["optimizer"]
 
@@ -207,19 +229,14 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
     total_t0 = time.perf_counter()
     
     initial_iter = state["iter_num"]
-    curr_iter = 0 
-    loss_func = FusedCrossEntropyLoss()
+    loss_func = FusedCrossEntropyLoss(ignore_index = IGNORE_INDEX)
+    fabric.print(f"start state: {state}") 
     for  train_data in train_dataloader:
         # resume loader state. This is not elegant but it works. Should rewrite it in the future.
         if resume:
-            if curr_iter < initial_iter:
-                curr_iter += 1
-                continue
-            else:
-                resume = False
-                curr_iter = -1
-                fabric.barrier()
-                fabric.print("resume finished, taken {} seconds".format(time.perf_counter() - total_t0))
+            resume = False
+            fabric.barrier()
+            fabric.print("resume finished, taken {} seconds".format(time.perf_counter() - total_t0))
         if state["iter_num"] >= max_iters:
             break
         
@@ -236,7 +253,6 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
         with fabric.no_backward_sync(model, enabled=is_accumulating):
             output = model(input_ids)
             logits = output.logits
-            print(logits.shape)
             loss = loss_func(logits, targets)
             # loss = chunked_cross_entropy(logits, targets, chunk_size=0)
             fabric.backward(loss / gradient_accumulation_steps)
@@ -268,10 +284,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
             flops_per_batch=config.estimated_flops,
             lengths=total_lengths,
             train_loss = loss.item()
-        )
-
-            
-            
+        ) 
             
         if val_dataloader is not None and not is_accumulating and state["step_count"] % eval_step_interval == 0:
             
@@ -283,10 +296,26 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
             fabric.log_dict({"metric/val_loss": val_loss.item(), "total_tokens": model.config.block_size * (state["iter_num"] + 1) * micro_batch_size * fabric.world_size}, state["step_count"])
             fabric.log_dict({"metric/val_ppl": math.exp(val_loss.item()), "total_tokens": model.config.block_size * (state["iter_num"] + 1) * micro_batch_size * fabric.world_size}, state["step_count"])
             fabric.barrier()
+
         if not is_accumulating and state["step_count"] % save_step_interval == 0:
-            checkpoint_path = out_dir / f"iter-{state['iter_num']:06d}-ckpt.pth"
+            checkpoint_path = out_dir / f"step-{state['step_count']:06d}-iter-{state['iter_num']:06d}-ckpt"
+            if not os.path.exists(checkpoint_path) and fabric.global_rank==0:
+                os.makedirs(checkpoint_path, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            fabric.save(checkpoint_path, state)
+            # 模型通过huggingface接口保存
+            save_to_pth = {}
+            for k, v in state.items():
+                if k=="model":
+                    continue
+                save_to_pth[k] = v
+            # fabric control only save one copy
+            fabric.save(os.path.join(checkpoint_path, "other-param-state.pth"), save_to_pth)
+            train_datasets[0].iterator.save_param(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.json"))
+            train_datasets[0].iterator.save_pikle(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.pikle"))
+            # only worker 0 save ckpt
+            if fabric.global_rank == 0:
+                huggingface_format_model.save_pretrained(os.path.join(checkpoint_path, f"huggingface-ckpt"))
+            fabric.barrier()
 
         
 @torch.no_grad()
@@ -325,6 +354,10 @@ def create_dataloaders(
 ) -> Tuple[DataLoader, DataLoader]:
     # Increase by one because we need the next word as well
     effective_block_size = block_size + 1
+    if RESUME: 
+        packdata_ckpt_dir = RESUME / f"data-state-rank-{fabric.global_rank}.pikle"
+    else: 
+        packdata_ckpt_dir = None 
     train_dataloader, train_datasets = create_dataloader(
         batch_size=batch_size,
         block_size=effective_block_size,
@@ -334,6 +367,8 @@ def create_dataloaders(
         seed=seed,
         split="train",
         train_data_config = train_data_config,
+        packdata_ckpt_dir = packdata_ckpt_dir,
+        add_new_data_dir = ADD_NEW_DATA_DIR
     )
     if val_data_dir:
         val_dataloader, val_datasets = create_dataloader(
