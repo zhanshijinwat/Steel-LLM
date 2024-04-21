@@ -36,7 +36,7 @@ HDR_SIZE = 24  # bytes
 class PackedDataset(IterableDataset):
     def __init__(
         self, hash_file_map, block_size, seed=12345, shuffle=True, wrap=False, num_processes=1, process_rank=0,
-        packdata_ckpt_dir = None
+        packdata_ckpt_dir = None, add_data_hash_file_map=None
     ):
         self._hash_file_map = hash_file_map
         self._block_size = block_size
@@ -46,6 +46,7 @@ class PackedDataset(IterableDataset):
         self._num_processes = num_processes
         self._process_rank = process_rank
         self.packdata_ckpt_dir = packdata_ckpt_dir
+        self.add_data_hash_file_map = add_data_hash_file_map
 
     def __iter__(self):
         # None
@@ -60,10 +61,24 @@ class PackedDataset(IterableDataset):
                       num_shards:{num_shards}, shard_id:{shard_id}, max_num_files:{max_num_files}")
         
         # 不同worker处理不通的文件
-        worker_hash_list = list(self._hash_file_map.keys())[shard_id::num_shards]
+        worker_hash_list = list(self._hash_file_map.keys())[shard_id::num_shards] 
         worker_hash_file_map = {}
         for hash in worker_hash_list:
             worker_hash_file_map[hash] = self._hash_file_map[hash]
+
+        # 处理add data
+        worker_add_data_hash_file_map = None
+        if self.add_data_hash_file_map is not None:
+            worker_add_data_hash_list = list(self.add_data_hash_file_map.keys())[shard_id::num_shards] 
+            worker_add_data_hash_file_map = {}
+            for hash in worker_add_data_hash_list:
+                worker_add_data_hash_file_map[hash] = self.add_data_hash_file_map[hash]
+            if len(worker_add_data_hash_file_map) == 0:
+                worker_add_data_hash_file_map = None
+            logging.debug(f"worker_add_data_hash_file_map:{worker_add_data_hash_file_map} \n \
+                      len of worker_add_data_hash_file_map: {len(worker_add_data_hash_file_map)}")
+        print(worker_add_data_hash_file_map)
+ 
         
         logging.debug(f"worker_hash_file_map:{worker_hash_file_map} \n len of worker_hash_file_map: {len(worker_hash_file_map)}")
 
@@ -76,6 +91,7 @@ class PackedDataset(IterableDataset):
             shuffle=self._shuffle,
             wrap=self._wrap,
             packdata_ckpt_dir = self.packdata_ckpt_dir,
+            add_data_hash_file_map = worker_add_data_hash_file_map,
             
         )
         return self.iterator
@@ -148,7 +164,8 @@ class PackedDatasetBuilder(object):
 
 
 class PackedDatasetIterator:
-    def __init__(self, hash_file_map, n_chunks, block_size, seed, shuffle, wrap, packdata_ckpt_dir = None):
+    def __init__(self, hash_file_map, n_chunks, block_size, seed, shuffle, wrap, 
+                 packdata_ckpt_dir = None, add_data_hash_file_map = None):
         self._seed = seed
         self._shuffle = shuffle
         self._rng = np.random.default_rng(seed) if shuffle else None
@@ -178,9 +195,13 @@ class PackedDatasetIterator:
         self.file_end = False
 
         if packdata_ckpt_dir == None:
+            assert(add_data_hash_file_map is None)
             self._load_n_chunks()
         else:
             self.load_pikle(load_dir=packdata_ckpt_dir)
+            print(add_data_hash_file_map)
+            if add_data_hash_file_map is not None:
+                self.add_new_data(add_data_hash_file_map) 
 
     def save_param(self, save_dir):
         save_dict = {}
@@ -223,8 +244,46 @@ class PackedDatasetIterator:
         self._file_idx += self._n_chunks
         logging.debug(f"load packdata param: {self.__dict__}")
 
-       
+    def add_new_data(self, add_data_hash_file_map):
+        logging.info(f"add new data before: all blocks={len(self._block_idxs)}, \
+                     cur_idx={self._curr_idx} filidx={self._file_idx} filenum={len(self._hash_file_map)} all_n_chunks={self._n_chunks}")
+        if self._n_chunks != len(self._hash_file_map):
+            raise NameError("add_new_data must all data shuffle")
+        # 过滤重复数据
+        new_data_set = set(add_data_hash_file_map.keys())
+        old_data_set = set(self._hash_file_map.keys())
+        dup_set = old_data_set.intersection(new_data_set)
+        if len(dup_set) != 0:
+            raise NameError("add repeated data")
+        print(self.__dict__)
+        # 控制epoch的idx
+        self._file_idx += len(add_data_hash_file_map)
+        for k,v in add_data_hash_file_map.items():
+            self._hash_file_map[k] = v
+        self._filenames = list(self._hash_file_map.values())
+        self._n_chunks += len(add_data_hash_file_map)
+        #
+        new_all_file_blocks = 0
+        for hash, file_dir in add_data_hash_file_map.items():
+            dtype, chunk_size = self._read_header(file_dir)
+            assert(chunk_size%self._block_size==0)
+            assert(dtype==self._dtype and (chunk_size//self._block_size)==self._n_blocks)
+            mmap = np.memmap(file_dir, mode="r", order="C", offset=HDR_SIZE)
+            self._mmaps.append(mmap)
+            self._buffers.append(memoryview(mmap))
+            new_all_file_blocks += (chunk_size//self._block_size)
+        new_data_idxs = self._rng.permutation(new_all_file_blocks) if self._shuffle else range(new_all_file_blocks)
+        # add bias
+        new_data_idxs = new_data_idxs + len(self._block_idxs)
+        self._block_idxs = np.append(self._block_idxs, new_data_idxs)
+        # shuffle not use data idx
+        need_shuffle_idxs = self._block_idxs[self._curr_idx:]
+        self._rng.shuffle(need_shuffle_idxs)
+        self._block_idxs[self._curr_idx:] = need_shuffle_idxs
+        logging.info(f"add new data after: all blocks={len(self._block_idxs)}, \
+                     cur_idx={self._curr_idx} filidx={self._file_idx} filenum={len(self._hash_file_map)} all_n_chunks={self._n_chunks}") 
 
+    
     def _read_header(self, path):
         with open(path, "rb") as f:
             magic = f.read(len(HDR_MAGIC))
@@ -256,7 +315,7 @@ class PackedDatasetIterator:
                     raise NameError(f"block size error: {self._block_size} {self._chunk_size}")
             else:
                 dtype, chunk_size = self._read_header(filename)
-                assert(dtype==self._dtype and chunk_size==self._chunk_size)
+                assert(dtype==self._dtype and (chunk_size//self._block_size)==self._n_blocks)
 
             # TODO: check header matches with previous files
             mmap = np.memmap(filename, mode="r", order="C", offset=HDR_SIZE)
@@ -271,7 +330,7 @@ class PackedDatasetIterator:
 
         assert(self._n_chunks <= len(self._filenames))
         # 无限循环读取
-        if self._n_chunks > len(self._filenames[self._file_idx :]):
+        if self._n_chunks > len(self._filenames[self._file_idx :]): 
             # if not self._wrap:
             #     raise StopIteration
             logging.info(f"1 epoch finish. file num:{len(self._filenames)}, file_idx:{self._file_idx }, n_chunk:{self._n_chunks}")
@@ -356,10 +415,13 @@ def CalcMD5(filepath, limit_size = 50*(10**6)):
 
 def create_dataloader(
     batch_size: int, block_size: int, data_dir: Path, fabric, shuffle: bool = True, seed: int = 12345, split="train",
-    train_data_config = None, val_data_config=None, packdata_ckpt_dir = None
+    train_data_config = None, val_data_config=None, packdata_ckpt_dir = None, add_new_data_dir = None
 ) -> DataLoader:
+    if add_new_data_dir!=None and packdata_ckpt_dir==None:
+        raise NameError("add new data must use load ckpt, if you train from raw, add data directly.")
     datasets = []
     data_config = train_data_config if split == "train" else val_data_config
+
     for prefix, _ in data_config:
         hash_file_map = {}
         filenames = sorted(glob.glob(str(data_dir / f"{prefix}*")))
@@ -372,7 +434,23 @@ def create_dataloader(
             hash_file_map[hash] = f
         hash_file_map = hash_file_map.items()
         hash_file_map = {k: v for k, v in sorted(hash_file_map)}
-        logging.info(f"hash file map: {hash_file_map}")
+        logging.info(f"hash_file_map: {hash_file_map} \n hash_file_map len:{len(hash_file_map)}")
+
+        
+        add_data_hash_file_map = None
+        # find and add data
+        if add_new_data_dir != None:
+            add_data_hash_file_map = {}
+            add_data_filenames = sorted(glob.glob(str(add_new_data_dir / f"{prefix}*")))
+            for f in add_data_filenames:
+                hash = CalcMD5(f)
+                if hash in add_data_hash_file_map:
+                    logging.warning(f"hash collide: {f}")
+                add_data_hash_file_map[hash] = f
+            add_data_hash_file_map = add_data_hash_file_map.items()
+            add_data_hash_file_map = {k: v for k, v in sorted(add_data_hash_file_map)}
+            logging.info(f"add_data_hash_file_map: {add_data_hash_file_map}") 
+
 
         dataset = PackedDataset(
             hash_file_map,
@@ -386,9 +464,12 @@ def create_dataloader(
             num_processes=fabric.world_size,
             process_rank=fabric.global_rank,
             packdata_ckpt_dir = packdata_ckpt_dir,
+            add_data_hash_file_map = add_data_hash_file_map
         )
         datasets.append(dataset)
 
+        # add new data only on first dataset.
+        add_new_data_dir = None
     if not datasets:
         raise RuntimeError(
             f"No data found at {data_dir}. Make sure you ran prepare_redpajama.py to create the dataset."
@@ -408,7 +489,7 @@ def test_create_dataloader():
     data_config = [("", 1)]
     class Param():
         def __init__(self) -> None:
-            self.global_rank =7
+            self.global_rank =3
             self.world_size = 8
     fabric = Param()
     dataloader,datasets = create_dataloader(
@@ -420,8 +501,8 @@ def test_create_dataloader():
         seed=seed,
         split="train",
         train_data_config = data_config,
-        packdata_ckpt_dir = "data_state-20.pikle",
-        add_new_data_dir = ""
+        packdata_ckpt_dir = "data_state-100.pikle",
+        add_new_data_dir = Path("/data/step3_train_input/test_add")
     )
     # copy_dataloader = iter(dataloader)
     counter = 0
@@ -430,12 +511,9 @@ def test_create_dataloader():
         print(f"{counter}: ",data[0,-10:].tolist())
         # print(next(copy_dataloader)[0,0:10])
         counter += 1
-        if counter % 10 ==0:
+        if counter % 100 ==0:
             datasets[0].iterator.save_param(f"data_state-{counter}.json")
             datasets[0].iterator.save_pikle(f"data_state-{counter}.pikle")
-        if counter == 50:
-            break
-         
 
 if __name__ == "__main__":
     test_create_dataloader()
