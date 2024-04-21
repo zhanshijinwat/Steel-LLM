@@ -5,10 +5,19 @@
 import os
 import random
 import struct
-
+from pathlib import Path
+from torch.utils.data import DataLoader
 import numpy as np
 import torch
 from torch.utils.data import IterableDataset, get_worker_info
+import glob
+import lightning as L
+import logging
+import  hashlib
+import time
+import json
+import pickle
+from copy import deepcopy
 
 dtypes = {1: np.uint8, 2: np.int8, 3: np.int16, 4: np.int32, 5: np.int64, 6: np.float32, 7: np.float64, 8: np.uint16}
 
@@ -26,35 +35,50 @@ HDR_SIZE = 24  # bytes
 
 class PackedDataset(IterableDataset):
     def __init__(
-        self, filenames, n_chunks, block_size, seed=12345, shuffle=True, wrap=False, num_processes=1, process_rank=0
+        self, hash_file_map, block_size, seed=12345, shuffle=True, wrap=False, num_processes=1, process_rank=0,
+        packdata_ckpt_dir = None
     ):
-        self._filenames = filenames
-        self._n_chunks = n_chunks
+        self._hash_file_map = hash_file_map
         self._block_size = block_size
         self._seed = seed
         self._shuffle = shuffle
         self._wrap = wrap
         self._num_processes = num_processes
         self._process_rank = process_rank
+        self.packdata_ckpt_dir = packdata_ckpt_dir
 
     def __iter__(self):
+        # None
         worker_info = get_worker_info()
         num_workers = worker_info.num_workers if worker_info is not None else 1
         worker_id = worker_info.id if worker_info is not None else 0
         num_shards = num_workers * self._num_processes
         shard_id = self._process_rank * num_workers + worker_id
+        # 不需要max_num_files, 某个worker迭代完了会重新刷数据
+        max_num_files = len(self._hash_file_map) // num_shards * num_shards
+        logging.debug(f"worker_info: {worker_info}, num_workers:{num_workers}, worker_id:{worker_id}, \
+                      num_shards:{num_shards}, shard_id:{shard_id}, max_num_files:{max_num_files}")
+        
+        # 不同worker处理不通的文件
+        worker_hash_list = list(self._hash_file_map.keys())[shard_id::num_shards]
+        worker_hash_file_map = {}
+        for hash in worker_hash_list:
+            worker_hash_file_map[hash] = self._hash_file_map[hash]
+        
+        logging.debug(f"worker_hash_file_map:{worker_hash_file_map} \n len of worker_hash_file_map: {len(worker_hash_file_map)}")
 
-        max_num_files = len(self._filenames) // num_shards * num_shards
-        filenames = self._filenames[shard_id:max_num_files:num_shards]
-
-        return PackedDatasetIterator(
-            filenames=filenames,
-            n_chunks=self._n_chunks,
+        # 每个worker的seed是不同的
+        self.iterator = PackedDatasetIterator(
+            hash_file_map=worker_hash_file_map,
+            n_chunks=len(worker_hash_file_map),
             block_size=self._block_size,
             seed=self._seed,
             shuffle=self._shuffle,
             wrap=self._wrap,
+            packdata_ckpt_dir = self.packdata_ckpt_dir,
+            
         )
+        return self.iterator
 
 
 class PackedDatasetBuilder(object):
@@ -124,7 +148,7 @@ class PackedDatasetBuilder(object):
 
 
 class PackedDatasetIterator:
-    def __init__(self, filenames, n_chunks, block_size, seed, shuffle, wrap):
+    def __init__(self, hash_file_map, n_chunks, block_size, seed, shuffle, wrap, packdata_ckpt_dir = None):
         self._seed = seed
         self._shuffle = shuffle
         self._rng = np.random.default_rng(seed) if shuffle else None
@@ -135,7 +159,9 @@ class PackedDatasetIterator:
         # TODO: instead of filenames, we could have a single text stream
         #       (or text file) with the sequence of all files to be
         #       fetched/loaded.
-        self._filenames = filenames
+        self._hash_file_map = hash_file_map
+        self._filenames = list(hash_file_map.values())
+        logging.debug(f"PackedDatasetIterator: hash map: {self._hash_file_map} \n files: {self._filenames}")
         self._file_idx = 0
 
         self._n_chunks = n_chunks
@@ -149,8 +175,55 @@ class PackedDatasetIterator:
 
         self._block_idxs = []
         self._curr_idx = 0
+        self.file_end = False
 
-        self._load_n_chunks()
+        if packdata_ckpt_dir == None:
+            self._load_n_chunks()
+        else:
+            self.load_pikle(load_dir=packdata_ckpt_dir)
+
+    def save_param(self, save_dir):
+        save_dict = {}
+        save_dict["_hash_file_map"] = self._hash_file_map
+        save_dict["_file_idx"] = self._file_idx
+        # fix
+        save_dict["_n_chunks"] = self._n_chunks
+        # fix
+        save_dict["_block_size"] = self._block_size
+        # fix 
+        save_dict["_n_blocks"] = self._n_blocks
+        save_dict["_curr_idx"] = self._curr_idx
+        # fix
+        save_dict["n_all_blocks"] = len(self._block_idxs)
+        save_dict["_block_idxs"] = self._block_idxs.tolist()
+        save_dict["_rng_state"] = self._rng.bit_generator.state
+        with open(save_dir, 'w') as file:
+            json.dump(save_dict, file)
+    
+    def save_pikle(self, save_dir):
+        save_data = {}
+        for k,v in self.__dict__.items():
+            # Variable cannot be serialized
+            if k in ["_mmaps", "_buffers"]:
+                continue
+            save_data[k] = deepcopy(self.__dict__[k])
+        print(save_data)
+        with open(save_dir, 'wb') as file:
+            pickle.dump(save_data, file)
+        del save_data
+
+    def load_pikle(self, load_dir):
+        logging.info(f"load packdata from {load_dir}......")
+        with open(load_dir, 'rb') as file:
+            data = pickle.load(file)
+            self.__dict__.update(data)
+        # realod buffer and mmap
+        self._file_idx -= self._n_chunks
+        self.build_mem_map_and_buffer(check_hash=True)
+        self._file_idx += self._n_chunks
+        logging.debug(f"load packdata param: {self.__dict__}")
+
+       
 
     def _read_header(self, path):
         with open(path, "rb") as f:
@@ -167,26 +240,49 @@ class PackedDatasetIterator:
         for mmap in self._mmaps:
             mmap._mmap.close()
 
-    def _load_n_chunks(self):
-        self._close_mmaps()
-        self._mmaps = []
-        self._buffers = []
-
-        # 无限循环读取
-        if self._n_chunks > len(self._filenames[self._file_idx :]):
-            # if not self._wrap:
-            #     raise StopIteration
-            self._file_idx = 0
-
+    
+    def build_mem_map_and_buffer(self, check_hash = False):
         for i in range(self._n_chunks):
             filename = self._filenames[self._file_idx + i]
+            if check_hash:
+                new_hash = CalcMD5(filename)
+                if new_hash not in self._hash_file_map or self._hash_file_map[new_hash]!=filename:
+                    raise NameError(f"new hash diff with old hash, file changed...")
+            # 必须保证每个chunk shape大小是固定的
             if self._dtype is None:
                 self._dtype, self._chunk_size = self._read_header(filename)
                 self._n_blocks = self._chunk_size // self._block_size
+                if self._chunk_size % self._block_size != 0:
+                    raise NameError(f"block size error: {self._block_size} {self._chunk_size}")
+            else:
+                dtype, chunk_size = self._read_header(filename)
+                assert(dtype==self._dtype and chunk_size==self._chunk_size)
+
             # TODO: check header matches with previous files
             mmap = np.memmap(filename, mode="r", order="C", offset=HDR_SIZE)
             self._mmaps.append(mmap)
             self._buffers.append(memoryview(mmap))
+    
+    def _load_n_chunks(self):
+        """build index from raw"""
+        self._close_mmaps()
+        self._mmaps = []
+        self._buffers = []
+
+        assert(self._n_chunks <= len(self._filenames))
+        # 无限循环读取
+        if self._n_chunks > len(self._filenames[self._file_idx :]):
+            # if not self._wrap:
+            #     raise StopIteration
+            logging.info(f"1 epoch finish. file num:{len(self._filenames)}, file_idx:{self._file_idx }, n_chunk:{self._n_chunks}")
+            if len(self._filenames[self._file_idx :])!=0 and self.file_end == False:
+                self._file_idx = len(self._filenames)-self._n_chunks
+                self.file_end = True
+            else:    
+                self._file_idx = 0
+                self.file_end = False
+
+        self.build_mem_map_and_buffer(check_hash=False)
 
         self._file_idx += self._n_chunks
         # n个chuncks里边一共有多少个句子
@@ -241,3 +337,105 @@ class CombinedDatasetIterator:
     def __next__(self):
         (dataset,) = self._rng.choices(self._datasets, weights=self._weights, k=1)
         return next(dataset)
+
+def CalcMD5(filepath, limit_size = 50*(10**6)):
+    """避免文件太大hash时间太长"""
+    size = os.path.getsize(filepath)
+    t0 = time.time()
+    with open(filepath,'rb') as f:
+        md5obj = hashlib.md5()
+        if size < limit_size:
+            md5obj.update(f.read())
+        else:
+            md5obj.update(f.read(limit_size//2))
+            f.seek(-limit_size//2, os.SEEK_END)
+            md5obj.update(f.read(limit_size//2))
+        hash = md5obj.hexdigest()
+        logging.debug(f"CalcMD5 cost {time.time()-t0}s")
+        return hash
+
+def create_dataloader(
+    batch_size: int, block_size: int, data_dir: Path, fabric, shuffle: bool = True, seed: int = 12345, split="train",
+    train_data_config = None, val_data_config=None, packdata_ckpt_dir = None
+) -> DataLoader:
+    datasets = []
+    data_config = train_data_config if split == "train" else val_data_config
+    for prefix, _ in data_config:
+        hash_file_map = {}
+        filenames = sorted(glob.glob(str(data_dir / f"{prefix}*")))
+        print(str(data_dir / f"{prefix}*"))
+        # 计算文件hash值
+        for f in filenames:
+            hash = CalcMD5(f)
+            if hash in hash_file_map:
+                logging.warning(f"hash collide: {f}")
+            hash_file_map[hash] = f
+        hash_file_map = hash_file_map.items()
+        hash_file_map = {k: v for k, v in sorted(hash_file_map)}
+        logging.info(f"hash file map: {hash_file_map}")
+
+        dataset = PackedDataset(
+            hash_file_map,
+            # n_chunks control the buffer size. 
+            # Note that the buffer size also impacts the random shuffle
+            # (PackedDataset is an IterableDataset. So the shuffle is done by prefetch a buffer and shuffle the buffer)
+            # n_chunks=len(hash_file_map),
+            block_size=block_size,
+            shuffle=shuffle,
+            seed=seed+fabric.global_rank,
+            num_processes=fabric.world_size,
+            process_rank=fabric.global_rank,
+            packdata_ckpt_dir = packdata_ckpt_dir,
+        )
+        datasets.append(dataset)
+
+    if not datasets:
+        raise RuntimeError(
+            f"No data found at {data_dir}. Make sure you ran prepare_redpajama.py to create the dataset."
+        )
+
+    weights = [weight for _, weight in data_config]
+    sum_weights = sum(weights)
+    weights = [el / sum_weights for el in weights]
+
+    combined_dataset = CombinedDataset(datasets=datasets, seed=seed, weights=weights)
+
+    return DataLoader(combined_dataset, batch_size=batch_size, shuffle=False, pin_memory=True), datasets
+
+def test_create_dataloader():
+    logging.basicConfig(level=logging.DEBUG)
+    seed = 666
+    data_config = [("", 1)]
+    class Param():
+        def __init__(self) -> None:
+            self.global_rank =7
+            self.world_size = 8
+    fabric = Param()
+    dataloader,datasets = create_dataloader(
+        batch_size=4,
+        block_size=2049,
+        fabric=fabric,
+        data_dir=Path("/data/step3_train_input/test"),
+        shuffle=True,
+        seed=seed,
+        split="train",
+        train_data_config = data_config,
+        packdata_ckpt_dir = "data_state-20.pikle",
+        add_new_data_dir = ""
+    )
+    # copy_dataloader = iter(dataloader)
+    counter = 0
+    load = True
+    for data in dataloader:
+        print(f"{counter}: ",data[0,-10:].tolist())
+        # print(next(copy_dataloader)[0,0:10])
+        counter += 1
+        if counter % 10 ==0:
+            datasets[0].iterator.save_param(f"data_state-{counter}.json")
+            datasets[0].iterator.save_pikle(f"data_state-{counter}.pikle")
+        if counter == 50:
+            break
+         
+
+if __name__ == "__main__":
+    test_create_dataloader()

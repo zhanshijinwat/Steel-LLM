@@ -17,7 +17,7 @@ sys.path.append(str(wd))
 # from apex.optimizers import FusedAdam #torch optimizer has a cuda backend, which is faster actually
 from lit_gpt.model import Block, Config, CausalSelfAttention
 from transformers import AutoConfig, AutoModelForCausalLM
-from lit_gpt.packed_dataset import CombinedDataset, PackedDataset
+from lit_gpt.packed_dataset import CombinedDataset, PackedDataset, create_dataloader
 from lit_gpt.speed_monitor import SpeedMonitorFabric as Monitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger, lazy_load
@@ -73,7 +73,7 @@ log_iter_interval = log_step_interval * gradient_accumulation_steps
 # Treat all dataset equally by their size. If you want to use a different weight for a dataset, add it to the list with the weight.
 # 数据根目录下的文文件名开头，""为匹配所有文件
 train_data_config = [
-    ("", 0.693584),
+    ("", 1),
 ]
 
 val_data_config = [
@@ -129,13 +129,15 @@ def main(fabric, train_data_dir, val_data_dir, resume,config):
         out_dir.mkdir(parents=True, exist_ok=True)
 
 
-    train_dataloader, val_dataloader = create_dataloaders(
+    train_dataloader, val_dataloader, train_datasets, val_datasets = create_dataloaders(
         batch_size=micro_batch_size,
         block_size=config.block_size,
         fabric=fabric,
         train_data_dir=train_data_dir,
         val_data_dir=val_data_dir,
         seed=3407,
+        train_data_config = train_data_config,
+        val_data_config = val_data_config
     )
     print("finish load data index...") 
     if val_dataloader is None:
@@ -311,46 +313,6 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
     return out
 
 
-def create_dataloader(
-    batch_size: int, block_size: int, data_dir: Path, fabric, shuffle: bool = True, seed: int = 12345, split="train"
-) -> DataLoader:
-    datasets = []
-    data_config = train_data_config if split == "train" else val_data_config
-    for prefix, _ in data_config:
-        filenames = sorted(glob.glob(str(data_dir / f"{prefix}*")))
-        print(str(data_dir / f"{prefix}*"))
-        print(filenames) 
-        random.seed(seed)
-        random.shuffle(filenames)
-
-        dataset = PackedDataset(
-            filenames,
-            # n_chunks control the buffer size. 
-            # Note that the buffer size also impacts the random shuffle
-            # (PackedDataset is an IterableDataset. So the shuffle is done by prefetch a buffer and shuffle the buffer)
-            n_chunks=8,
-            block_size=block_size,
-            shuffle=shuffle,
-            seed=seed+fabric.global_rank,
-            num_processes=fabric.world_size,
-            process_rank=fabric.global_rank,
-        )
-        datasets.append(dataset)
-
-    if not datasets:
-        raise RuntimeError(
-            f"No data found at {data_dir}. Make sure you ran prepare_redpajama.py to create the dataset."
-        )
-
-    weights = [weight for _, weight in data_config]
-    sum_weights = sum(weights)
-    weights = [el / sum_weights for el in weights]
-
-    combined_dataset = CombinedDataset(datasets=datasets, seed=seed, weights=weights)
-
-    return DataLoader(combined_dataset, batch_size=batch_size, shuffle=False, pin_memory=True)
-
-
 def create_dataloaders(
     batch_size: int,
     block_size: int,
@@ -358,32 +320,36 @@ def create_dataloaders(
     train_data_dir: Path = Path("data/redpajama_sample"),
     val_data_dir: Optional[Path] = None,
     seed: int = 12345,
+    train_data_config = None,
+    val_data_config = None
 ) -> Tuple[DataLoader, DataLoader]:
     # Increase by one because we need the next word as well
     effective_block_size = block_size + 1
-    train_dataloader = create_dataloader(
+    train_dataloader, train_datasets = create_dataloader(
         batch_size=batch_size,
         block_size=effective_block_size,
         fabric=fabric,
         data_dir=train_data_dir,
         shuffle=True,
         seed=seed,
-        split="train"
+        split="train",
+        train_data_config = train_data_config,
     )
-    val_dataloader = (
-        create_dataloader(
-            batch_size=batch_size,
-            block_size=effective_block_size,
-            fabric=fabric,
-            data_dir=val_data_dir,
-            shuffle=False,
-            seed=seed,
-            split="validation"
-        )
-        if val_data_dir
-        else None
-    )
-    return train_dataloader, val_dataloader
+    if val_data_dir:
+        val_dataloader, val_datasets = create_dataloader(
+                batch_size=batch_size,
+                block_size=effective_block_size,
+                fabric=fabric,
+                data_dir=val_data_dir,
+                shuffle=False,
+                seed=seed,
+                split="validation",
+                val_data_config = val_data_config
+            )
+    else:
+        val_dataloader, val_datasets = None, None
+            
+    return train_dataloader, val_dataloader, train_datasets, val_datasets
 
 
 # learning rate decay scheduler (cosine with warmup)
