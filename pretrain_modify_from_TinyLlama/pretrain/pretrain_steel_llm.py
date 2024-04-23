@@ -43,15 +43,16 @@ TRAIN_DATA_DIR = Path("/data/step3_train_input/sky")
 MODEL_PATH = "/hoe/test/gqs/Steel-LLM/model/qwen_1_1_8B_chat"
 BLOCK_SIZE = 2048
 # bool / Path
-# RESUME = Path("./out/test_save/step-001400-iter-002800-ckpt")
+# RESUME = Path("./out/huggingface_save_8_card/step-000400-iter-001600-ckpt")
 RESUME = False
 ADD_NEW_DATA_DIR = None
 # qwen moe pad_token_id
 IGNORE_INDEX = 151643
+USE_FLASH_ATTN =True # "auto"
 
 # Hyperparameters
 num_of_devices = 8
-global_batch_size = 256
+global_batch_size = 16*num_of_devices
 learning_rate = 4e-4
 micro_batch_size = 4
 max_step = 715256 * 2
@@ -63,9 +64,9 @@ warmup_steps = 10_000
 #---
 log_step_interval = 10
 eval_iters = 100 # eval iter
-save_step_interval = 10
+save_step_interval = 5000
 eval_step_interval = 5000
-
+ 
 
 weight_decay = 1e-1
 beta1 = 0.9
@@ -117,6 +118,7 @@ def setup(
     if devices > 1: 
         # todo: check param
         strategy = FSDPStrategy(
+            sharding_strategy = "SHARD_GRAD_OP",
             auto_wrap_policy={QWenBlock},
             activation_checkpointing_policy=None,
             state_dict_type="full",
@@ -129,6 +131,7 @@ def setup(
     fabric.print(hparams)
     # 添加其他参数
     config.model_path = model_path
+    config.use_flash_attn = USE_FLASH_ATTN
     config = compatible_tiny_llama_config(config, block_size)
     # todo: why not use?
     if devices > 1:
@@ -182,16 +185,17 @@ def main(fabric, train_data_dir, val_data_dir, resume, config):
         config.estimated_flops = estimated_flops
         fabric.print(f"Estimated TFLOPs: {estimated_flops * fabric.world_size / 1e12:.2f}")
         x = torch.randint(0, 1, (micro_batch_size, config.block_size))
+        
         # measured_flos run in meta. Will trigger fusedRMSNorm error
         #measured_flops = measure_flops(meta_model, x)
         #fabric.print(f"Measured TFLOPs: {measured_flops * fabric.world_size / 1e12:.2f}")
         del meta_model, x
         
-    if resume:
-        del model
-        model_path = resume / "huggingface-ckpt"
-        model = QWenLMHeadModel.from_pretrained(model_path)
-        fabric.print(f"Resuming model from {resume} success...")
+    # if resume:
+    #     del model
+    #     model_path = resume / "huggingface-ckpt"
+    #     model = QWenLMHeadModel.from_pretrained(model_path)
+    #     fabric.print(f"Resuming model from {resume} success...")
 
     huggingface_format_model = model
     model = fabric.setup(model)
@@ -201,11 +205,11 @@ def main(fabric, train_data_dir, val_data_dir, resume, config):
     # optimizer = FusedAdam(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2),adam_w_mode=True)
     optimizer = fabric.setup_optimizers(optimizer)
 
-    state = {"optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
+    state = {"model": model,"optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
     if resume:
-        other_param_dir = resume / "other-param-state.pth"
-        fabric.load(other_param_dir, state)
-        fabric.print(f"Resuming other-param from {resume} success...")
+        state_dir = resume / "state.pth"
+        fabric.load(state_dir, state)
+        fabric.print(f"Resuming state from {resume} success...")
 
     state["model"] = model
 
@@ -254,6 +258,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
             output = model(input_ids)
             logits = output.logits
             loss = loss_func(logits, targets)
+            # loss = torch.nn.functional.cross_entropy(logits.reshape(-1,logits.shape[-1]), targets.reshape(-1)) # raw torch loss
             # loss = chunked_cross_entropy(logits, targets, chunk_size=0)
             fabric.backward(loss / gradient_accumulation_steps)
 
@@ -302,21 +307,17 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
             if not os.path.exists(checkpoint_path) and fabric.global_rank==0:
                 os.makedirs(checkpoint_path, exist_ok=True)
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
-            # 模型通过huggingface接口保存
-            save_to_pth = {}
-            for k, v in state.items():
-                if k=="model":
-                    continue
-                save_to_pth[k] = v
             # fabric control only save one copy
-            fabric.save(os.path.join(checkpoint_path, "other-param-state.pth"), save_to_pth)
+            fabric.save(os.path.join(checkpoint_path, "state.pth"), state)
             train_datasets[0].iterator.save_param(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.json"))
             train_datasets[0].iterator.save_pikle(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.pikle"))
-            # only worker 0 save ckpt
-            if fabric.global_rank == 0:
-                huggingface_format_model.save_pretrained(os.path.join(checkpoint_path, f"huggingface-ckpt"))
+            logging.info(f"save train_datasets success...")
+            # only worker 0 save ckpt. use fabric while be stuck...
+            # if fabric.global_rank == 0:
+            #     print(huggingface_format_model)
+            #     print(type(huggingface_format_model), type(model))
+            #     huggingface_format_model.save_pretrained(os.path.join(checkpoint_path, f"huggingface-ckpt"))
             fabric.barrier()
-
         
 @torch.no_grad()
 def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoader) -> torch.Tensor:
@@ -355,7 +356,7 @@ def create_dataloaders(
     # Increase by one because we need the next word as well
     effective_block_size = block_size + 1
     if RESUME: 
-        packdata_ckpt_dir = RESUME / f"data-state-rank-{fabric.global_rank}.pikle"
+        packdata_ckpt_dir = str(RESUME / f"data-state-rank-{fabric.global_rank}.pikle")
     else: 
         packdata_ckpt_dir = None 
     train_dataloader, train_datasets = create_dataloader(

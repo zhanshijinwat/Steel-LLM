@@ -425,8 +425,9 @@ def create_dataloader(
 
     for prefix, _ in data_config:
         hash_file_map = {}
-        filenames = sorted(glob.glob(str(data_dir / f"{prefix}*")))
-        logging.info("create_dataloader root path: ",str(data_dir / f"{prefix}*"))
+        root_data_dir = str(data_dir / f"{prefix}*")
+        filenames = sorted(glob.glob(root_data_dir))
+        logging.info(f"create_dataloader root path: {root_data_dir}")
         # 计算文件hash值
         for f in filenames:
             hash = CalcMD5(f)
