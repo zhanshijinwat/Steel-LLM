@@ -1,0 +1,36 @@
+{
+  "_block_types": [
+    "recurrent",
+    "recurrent",
+    "attention"
+  ],
+  "_name_or_path": "google/recurrent-gemma-2b",
+  "architectures": [
+    "RecurrentGemmaForCausalLM"
+  ],
+  "attention_bias": false,
+  "attention_dropout": 0.0,
+  "attention_window_size": 2048,
+  "bos_token_id": 2,
+  "conv1d_width": 4,
+  "embeddings_scale_by_sqrt_dim": true,
+  "eos_token_id": 1,
+  "head_dim": 256,
+  "hidden_activation": "gelu_pytorch_tanh",
+  "hidden_size": 2560,
+  "intermediate_size": 15360,
+  "logits_soft_cap": 30.0,
+  "lru_width": 2560,
+  "model_type": "recurrent_gemma",
+  "num_attention_heads": 10,
+  "num_hidden_layers": 26,
+  "num_key_value_heads": 1,
+  "pad_token_id": 0,
+  "partial_rotary_factor": 0.5,
+  "rms_norm_eps": 1e-06,
+  "rope_theta": 10000.0,
+  "torch_dtype": "float32",
+  "transformers_version": "4.40.0.dev0",
+  "use_cache": true,
+  "vocab_size": 256000
+}

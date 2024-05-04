@@ -2,8 +2,8 @@ import glob
 import os
 import time
 if __name__ == "__main__":
-    dir_list = glob.glob("/data/step0_raw/wanjuan/**/*.jsonl.tar.gz", recursive=True)
-    target_root_dir = "/data/step2_data_cleaning/wanjuan"
+    dir_list = glob.glob("/data1/step0_rawdata/wanjuan/**/*.jsonl.tar.gz", recursive=True)
+    target_root_dir = "/data1/step2_data_cleaning/wanjuan"
     print(dir_list)
     print(len(dir_list))
     for coutner, file_dir in enumerate(dir_list):
