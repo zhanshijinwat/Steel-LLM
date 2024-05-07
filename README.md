@@ -54,8 +54,10 @@ lishu14的知乎：https://www.zhihu.com/people/a-xun-58-5
   - 任务：BELLE任务数据（BELLE_2_5M)、firefly1.1M
   - 代码数据：starcode
 - 目标格式：`{"text": "asdfasdf..."}`，文件保存为.jsonl类型。
+- 运行方式：`python data/pretrain_data_prepare/step1_data_process.py`
 #### data-juicer数据处理（step2）
 我们使用data-juicer处理文本时，不改变数据格式。
+- 运行方式：`sh data/pretrain_data_prepare/step2/run_step2.sh`
 
 - 选用的文本处理算子
 
