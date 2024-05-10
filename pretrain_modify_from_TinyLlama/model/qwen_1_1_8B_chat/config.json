@@ -7,7 +7,7 @@
     "AutoModelForCausalLM": "modeling_qwen.QWenLMHeadModel"
   },
   "attn_dropout_prob": 0.0,
-  "bf16": false,
+  "bf16": true,
   "emb_dropout_prob": 0.0,
   "fp16": false,
   "fp32": false,

@@ -653,7 +653,7 @@ class RecurrentGemmaModel(RecurrentGemmaPreTrainedModel):
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
-        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
+        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx) 
         self.layers = nn.ModuleList(
             [RecurrentGemmaDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
@@ -708,9 +708,9 @@ class RecurrentGemmaModel(RecurrentGemmaPreTrainedModel):
             inputs_embeds = self.embed_tokens(input_ids)
 
         hidden_states = inputs_embeds
-
         if use_cache and inputs_embeds.shape[1] != 1:  # TODO let's maybe only call in the `generate`?
-            self._setup_cache(self.config, hidden_states.shape[0], hidden_states.device, hidden_states.dtype)
+            # self._setup_cache(self.config, hidden_states.shape[0], hidden_states.device, hidden_states.dtype)
+            self._setup_cache(self.config, hidden_states.shape[0], hidden_states.device, None)
 
         if cache_position is None:
             cache_position = torch.arange(hidden_states.shape[1], device=hidden_states.device)

@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 from lightning_utilities.core.imports import RequirementCache
 from typing_extensions import Self
-from flash_attn import flash_attn_func
+# from flash_attn import flash_attn_func
 from lit_gpt.config import Config
 # from xformers.ops import SwiGLU
 # from .fused_rotary_embedding import apply_rotary_emb_func
