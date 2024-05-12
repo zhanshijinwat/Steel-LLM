@@ -242,8 +242,8 @@ class SteelSoftMoeV2(nn.Module):
 
     def forward(self, x):
         logits = torch.matmul(x, self.score) # (batch_size, seq_len, slots)
-        dispatch_weights = F.softmax(logits, dim=-1)
-        combine_weights = F.softmax(logits, dim=1)
+        dispatch_weights = F.softmax(logits, dim=-1,dtype=torch.float32).to(x.dtype)
+        combine_weights = F.softmax(logits, dim=1,dtype=torch.float32).to(x.dtype)
         xs = torch.bmm(dispatch_weights.transpose(1, 2), x)
         ys = torch.cat(
             [expert(xs[:, i * self.config.slots_per_expert : (i + 1) * self.config.slots_per_expert, :]) 
