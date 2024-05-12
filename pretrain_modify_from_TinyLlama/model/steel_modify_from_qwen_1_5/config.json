@@ -27,5 +27,11 @@
   "transformers_version": "4.37.0",
   "use_cache": true,
   "use_sliding_window": false,
-  "vocab_size": 151936
+  "vocab_size": 151936,
+  "_attn_implementation": "sdpa",
+  "n_experts": 8,
+  "mlp_div_ratio":8,
+  "FFN_type": "softmoe_v3",
+  "mlp_type": "raw",
+  "slots_per_expert": 1
 }

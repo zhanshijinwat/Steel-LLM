@@ -43,7 +43,7 @@ from transformers.utils import (
     replace_return_docstrings,
 )
 from configuration_steel import Qwen2Config
-
+from softmoe_v3 import SteelSoftMoEV3
 
 if is_flash_attn_2_available():
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -54,6 +54,8 @@ if is_flash_attn_2_available():
     print(f"zhanshijin: if flash attn surrport window:{_flash_supports_window_size}")
 else:
     print("zhanshijin: not surrport flash_attn_2")
+
+logger = logging.get_logger(__name__)
 
 rms_norm = None
 def _import_cuda_rmsnorm():
@@ -67,10 +69,6 @@ def _import_cuda_rmsnorm():
             "Warning: import flash_attn rms_norm fail, please install FlashAttention layer_norm to get higher efficiency "
             "https://github.com/Dao-AILab/flash-attention/tree/main/csrc/layer_norm"
         )
-
-
-logger = logging.get_logger(__name__)
-
 
 _CHECKPOINT_FOR_DOC = "Qwen/Qwen2-7B-beta"
 _CONFIG_FOR_DOC = "Qwen2Config"
@@ -188,13 +186,13 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1):
     return q_embed, k_embed
 
 
-# Copied from transformers.models.mistral.modeling_mistral.MistralMLP with Mistral->Qwen2
-class Qwen2MLP(nn.Module):
+# Copied from transformers.models.mistral.modeling_mistral.MistralMLP with Mistral->Qwen2->Steel
+class SteelMLP(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
         self.hidden_size = config.hidden_size
-        self.intermediate_size = config.intermediate_size
+        self.intermediate_size = config.intermediate_size //config.mlp_div_ratio
         self.gate_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
         self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
         self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
@@ -203,6 +201,26 @@ class Qwen2MLP(nn.Module):
     def forward(self, x):
         return self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
+class SteelSoftMoeV2(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.config = config
+        self.experts = nn.ModuleList([SteelMLP(config) for _ in range(config.n_experts)])
+        self.score = nn.Parameter(torch.randn(config.hidden_size, config.n_experts * config.slots_per_expert))
+
+    def forward(self, x):
+        logits = torch.matmul(x, self.score) # (batch_size, seq_len, slots)
+        dispatch_weights = F.softmax(logits, dim=-1)
+        combine_weights = F.softmax(logits, dim=1)
+        xs = torch.bmm(dispatch_weights.transpose(1, 2), x)
+        ys = torch.cat(
+            [expert(xs[:, i * self.config.slots_per_expert : (i + 1) * self.config.slots_per_expert, :]) 
+                          for i, expert in enumerate(self.experts)],
+            dim=1
+            )
+        y = torch.bmm(combine_weights, ys)
+        return y
+    
 
 # Copied from transformers.models.llama.modeling_llama.repeat_kv
 def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
@@ -751,8 +769,21 @@ class Qwen2DecoderLayer(nn.Module):
                 "unexpected results may be encountered."
             )
         self.self_attn = QWEN2_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
-
-        self.mlp = Qwen2MLP(config)
+        if config.mlp_type == "raw":
+            mlp_class = SteelMLP
+        else:
+            raise NameError(f"No this mlp type: {config.mlp_type}")
+        if config.FFN_type == "raw":
+            self.mlp = SteelMLP(config)
+            logger.warning_once(f"FFN: SteelMLP")
+        elif config.FFN_type == "softmoe_v2":
+            self.mlp = SteelSoftMoeV2(config)
+            logger.warning_once(f"FFN: SteelSoftMoeV2")
+        elif config.FFN_type == "softmoe_v3":
+            self.mlp = SteelSoftMoEV3(config=config, layer=mlp_class)
+            logger.warning_once(f"FFN: SteelSoftMoeV3")
+        else:
+            raise NameError(f"No this FFN type: {config.FFN_type}")
         self.input_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
@@ -952,6 +983,9 @@ class Qwen2Model(Qwen2PreTrainedModel):
             [Qwen2DecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
         self._attn_implementation = config._attn_implementation
+        logger.warning_once(
+                f"zhanshijin: now use _attn_implementation is {config._attn_implementation}, you can choose from {QWEN2_ATTENTION_CLASSES.keys()}"
+            ) 
         self.norm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False
