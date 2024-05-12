@@ -59,7 +59,7 @@ IGNORE_INDEX = 151643
 USE_FLASH_ATTN =True # "auto"
 
 # Hyperparameters
-num_of_devices = 1
+num_of_devices = 8
 global_batch_size = 16*num_of_devices
 learning_rate = 4e-4
 micro_batch_size = 4
