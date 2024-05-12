@@ -17,10 +17,12 @@ def softmax(x: torch.Tensor, dim: int | tuple[int, ...]) -> torch.Tensor:
     Returns:
         torch.Tensor: Output tensor containing softmax probabilities along the specified dimensions.
     """
+    dtype = x.dtype
+    x = x.to(torch.float32)
     max_vals = torch.amax(x, dim=dim, keepdim=True)
     e_x = torch.exp(x - max_vals)
     sum_exp = e_x.sum(dim=dim, keepdim=True)
-    return e_x / sum_exp
+    return (e_x / sum_exp).to(dtype)
 
 # copy from https://github.com/bwconrad/soft-moe
 class SteelSoftMoEV3(nn.Module):
