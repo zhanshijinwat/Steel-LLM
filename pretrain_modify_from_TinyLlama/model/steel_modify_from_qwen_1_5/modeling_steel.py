@@ -201,11 +201,43 @@ class SteelMLP(nn.Module):
     def forward(self, x):
         return self.down_proj(self.act_fn(self.gate_proj(x)) * self.up_proj(x))
 
-class SteelSoftMoeV2(nn.Module):
+class SteelSENet(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.config = config
-        self.experts = nn.ModuleList([SteelMLP(config) for _ in range(config.n_experts)])
+        self.hidden_size = config.hidden_size
+        self.intermediate_size = config.intermediate_size //config.mlp_div_ratio
+        self.gate_up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
+        self.up_proj = nn.Linear(self.hidden_size, self.intermediate_size, bias=False)
+        self.gate_down_proj = nn.Linear(self.intermediate_size,self.hidden_size, bias=False)
+        self.down_proj = nn.Linear(self.intermediate_size, self.hidden_size, bias=False)
+        self.act_fn1 = ACT2FN[config.hidden_act]
+        self.act_fn2 = ACT2FN[config.hidden_act]
+
+    def forward(self, x):
+        x = self.act_fn1(self.gate_up_proj(x)) * self.up_proj(x)
+        return self.act_fn2(self.gate_down_proj(x)) * self.down_proj(x)
+
+
+class SteelSoftMoeV1(nn.Module):
+    def __init__(self, config, layer=None):
+        super().__init__()
+        self.config = config
+        self.experts = nn.ModuleList([layer(config) for _ in range(config.n_experts)])
+        self.gating = nn.Linear(config.hidden_size, config.n_experts)
+    def forward(self, x):
+        weights = self.gating(x)
+        weights = nn.functional.softmax(weights, dim=-1, dtype=torch.float32).to(x.dtype)
+        outputs = torch.stack( 
+            [expert(x) for expert in self.experts], dim=2) 
+        weights = weights.unsqueeze(-1)
+        return torch.sum(outputs * weights, dim=2)
+    
+class SteelSoftMoeV2(nn.Module):
+    def __init__(self, config, layer):
+        super().__init__()
+        self.config = config
+        self.experts = nn.ModuleList([layer(config) for _ in range(config.n_experts)])
         self.score = nn.Parameter(torch.randn(config.hidden_size, config.n_experts * config.slots_per_expert))
 
     def forward(self, x):
@@ -771,19 +803,28 @@ class Qwen2DecoderLayer(nn.Module):
         self.self_attn = QWEN2_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
         if config.mlp_type == "raw":
             mlp_class = SteelMLP
+            logger.warning_once(f"mlp_class: SteelMLP")
+        elif config.mlp_type == "senet":
+            mlp_class = SteelSENet
+            logger.warning_once(f"mlp_class: SteelSENet")
         else:
             raise NameError(f"No this mlp type: {config.mlp_type}")
+    
         if config.FFN_type == "raw":
-            self.mlp = SteelMLP(config)
-            logger.warning_once(f"FFN: SteelMLP")
+            self.mlp = mlp_class(config)
+            logger.warning_once(f"FFN: {mlp_class}")
+        elif config.FFN_type == "softmoe_v1":
+            self.mlp = SteelSoftMoeV1(config, layer=mlp_class)
+            logger.warning_once(f"FFN: SteelSoftMoeV1")
         elif config.FFN_type == "softmoe_v2":
-            self.mlp = SteelSoftMoeV2(config)
+            self.mlp = SteelSoftMoeV2(config, layer=mlp_class)
             logger.warning_once(f"FFN: SteelSoftMoeV2")
         elif config.FFN_type == "softmoe_v3":
             self.mlp = SteelSoftMoEV3(config=config, layer=mlp_class)
             logger.warning_once(f"FFN: SteelSoftMoeV3")
         else:
             raise NameError(f"No this FFN type: {config.FFN_type}")
+
         self.input_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.post_attention_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
