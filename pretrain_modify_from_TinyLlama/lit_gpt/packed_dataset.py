@@ -335,6 +335,7 @@ class PackedDatasetIterator:
             # if not self._wrap:
             #     raise StopIteration
             logging.info(f"1 epoch finish. file num:{len(self._filenames)}, file_idx:{self._file_idx }, n_chunk:{self._n_chunks}")
+            print("_load_n_chunks newepoch data...")
             if len(self._filenames[self._file_idx :])!=0 and self.file_end == False:
                 self._file_idx = len(self._filenames)-self._n_chunks
                 self.file_end = True
@@ -495,27 +496,28 @@ def test_create_dataloader():
             self.world_size = 8
     fabric = Param()
     dataloader,datasets = create_dataloader(
-        batch_size=4,
+        batch_size=16,
         block_size=2049,
         fabric=fabric,
-        data_dir=Path("/data/step3_train_input/test"),
+        data_dir=Path("/data1/step3_final_data/sky_2000"),
         shuffle=True,
         seed=seed,
         split="train",
         train_data_config = data_config,
-        packdata_ckpt_dir = "data_state-100.pikle",
-        add_new_data_dir = Path("/data/step3_train_input/test_add")
+        # packdata_ckpt_dir = "data_state-100.pikle",
+        # add_new_data_dir = Path("/data/step3_train_input/test_add")
     )
     # copy_dataloader = iter(dataloader)
     counter = 0
     load = True
     for data in dataloader:
-        print(f"{counter}: ",data[0,-10:].tolist())
+        # print(f"{counter}: ",data[0,-10:].tolist())
         # print(next(copy_dataloader)[0,0:10])
         counter += 1
-        if counter % 100 ==0:
-            datasets[0].iterator.save_param(f"data_state-{counter}.json")
-            datasets[0].iterator.save_pikle(f"data_state-{counter}.pikle")
+        if counter % 10 ==0:
+            print(counter, f"{datasets[0].iterator._curr_idx}/{len(datasets[0].iterator._block_idxs)}")
+            # datasets[0].iterator.save_param(f"data_state-{counter}.json")
+            # datasets[0].iterator.save_pikle(f"data_state-{counter}.pikle")
 
 if __name__ == "__main__":
     test_create_dataloader()

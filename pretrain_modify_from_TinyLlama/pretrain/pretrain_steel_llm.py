@@ -45,7 +45,7 @@ logging.basicConfig(level=logging.DEBUG)
 # model_name = "steel_llm_test_qwen1"
 name = "test_qwen2"
 out_dir = Path("out") / name
-TRAIN_DATA_DIR = Path("/data1/step3_final_data/sky")
+TRAIN_DATA_DIR = Path("/data1/step3_final_data/sky_2000")
 # TRAIN_DATA_DIR = Path("/data/step3_train_input/test")
 MODEL_PATH = "../model/steel_modify_from_qwen_1_5"
 # todo: check block size
@@ -60,9 +60,9 @@ USE_FLASH_ATTN =True # "auto"
 
 # Hyperparameters
 num_of_devices = 8
-global_batch_size = 16*num_of_devices
+global_batch_size = 64*num_of_devices
 learning_rate = 4e-4
-micro_batch_size = 4
+micro_batch_size = 8
 max_step = 715256 * 2
 # lr scheduler
 decay_lr = True
@@ -284,6 +284,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
                 f" remaining time: {(t1 - total_t0) / (state['iter_num'] - initial_iter) * (max_iters - state['iter_num']) / 3600:.2f} hours. " 
                 # print days as well
                 f" or {(t1 - total_t0) / (state['iter_num'] - initial_iter) * (max_iters - state['iter_num']) / 3600 / 24:.2f} days. "
+                f"data idx: {train_datasets[0].iterator._curr_idx}/{len(train_datasets[0].iterator._block_idxs)}"
             )
  
         monitor.on_train_batch_end(
@@ -315,7 +316,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             # fabric control only save one copy
             fabric.save(os.path.join(checkpoint_path, "state.pth"), state)
-            train_datasets[0].iterator.save_param(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.json"))
+            # train_datasets[0].iterator.save_param(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.json"))
             train_datasets[0].iterator.save_pikle(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.pikle"))
             logging.info(f"save train_datasets success...")
             # only worker 0 save ckpt. use fabric while be stuck...

@@ -96,7 +96,8 @@ class SteelSoftMoEV3(nn.Module):
         logits = torch.einsum("bmd,dnp->bmnp", x, phi)
         d = softmax(logits, dim=1)
         c = softmax(logits, dim=(2, 3))
-
+        # tmp = c[0,:,:,0].reshape([c.shape[1],-1])
+        # print("num:",tmp, "shape:",tmp.shape, "sum:",tmp.sum(dim=1))
         # Compute input slots as weighted average of input tokens using dispatch weights
         xs = torch.einsum("bmd,bmnp->bnpd", x, d)
 
