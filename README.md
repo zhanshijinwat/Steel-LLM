@@ -19,7 +19,13 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
 （上传的数据内容请遵守各项法规）
 
 ### 更新
-[2024/4/24]doing：撰写训练程序相关博客。todo：模型设计
+[2024/5/19] 基于Qwen1.5完成模型修改，模型大小1.12B：
+- FFN层使用softmax moe，相同参数量下有更高的训练速度
+- 使用双层的SwiGLU
+
+相关博客内容撰写中。。。
+
+[2024/5/5] 预训练程序修改相关的博客：https://zhuanlan.zhihu.com/p/694223107
 
 [2024/4/24] 完成训练程序改进：兼容Hugginface格式模型、支持数据断点续训、支持追加新的数据 
 
@@ -117,7 +123,9 @@ lishu14的知乎：https://www.zhihu.com/people/a-xun-58-5
 不单独训练tokenizer，使用[Qwen/Qwen1.5-MoE-A2.7B-Chat](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B-Chat)的tokenizer
 
 ### 模型结构
-👷 待定，施工中...
+基于Qwen1.5模型，进行了如下改动：
+- FFN层使用softmax moe，相同参数量下有更高的训练速度
+- 使用双层的SwiGLU
 
 ### 预训框架
 
