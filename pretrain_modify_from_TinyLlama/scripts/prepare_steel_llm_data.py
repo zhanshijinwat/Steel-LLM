@@ -35,7 +35,7 @@ def process_jsonl_file(set_name, file_dir, builder, tokenizer, cache_lines_num):
             counter += 1
             # 不同数据集存的字段不一样
             try:
-                if set_name=="sky":
+                if set_name=="sky" or set_name=="starcode" or set_name == "chat":
                     text = json.loads(row)["text"]
                 elif set_name=="wanjuan_zh" or set_name=="wanjuan_en":
                     text = json.loads(row)
@@ -66,7 +66,7 @@ def multiprocess_data(set_name, file_dir_list, builder, tokenizer, cache_lines_n
     try:
         for file_dir in file_dir_list:
             t0 = time.time()
-            if set_name in ["sky", "wanjuan_zh", "wanjuan_en"]:
+            if set_name in ["sky", "wanjuan_zh", "wanjuan_en", "starcode","chat"]:
                 process_jsonl_file(set_name=set_name, file_dir=file_dir, builder=builder,
                         tokenizer=tokenizer, cache_lines_num=cache_lines_num)
             else:
@@ -159,15 +159,17 @@ def prepare_full(
 
 
 filename_sets = {
-    # "sky": "data/step0_raw/sky/data/*jsonl",
-    # "wanjuan_zh": "data/step2_data_cleaning/wanjuan/wanjuan_zh/*jsonl",
-    "wanjuan_en": "data/step2_data_cleaning/wanjuan/wanjuan_en/*jsonl"
+    # "sky": "data1/step0_rawdata/sky/data/*jsonl",
+    # "wanjuan_zh": "data2/step2_data_cleaning/wanjuan/wanjuan_zh/*jsonl",
+    # "wanjuan_en": "data2/step2_data_cleaning/wanjuan/wanjuan_en/*jsonl",
+    "starcode": "data1/step2_data_cleaning/data_juicer_clean_code_data/*jsonl*"
+    # "chat": "data1/step2_data_cleaning/data_juicer_clean_text_data/*jsonl"
 }
 def prepare(
     source_path: Path = Path("/"),
     # tokenizer地址
-    checkpoint_dir: Path = Path("/hoe/test/gqs/Steel-LLM/model/qwen_moe"),
-    destination_path: Path = Path("/hoe/test/gqs/data/step3_train_input/wanjuan_en"),
+    checkpoint_dir: Path = Path("../model/tokenizer_from_qwen_moe_chat"),
+    destination_path: Path = Path("/data1/step3_final_data/starcode"),
     sample: bool = False,
     match: str = "",
     max_files = 10000000000,

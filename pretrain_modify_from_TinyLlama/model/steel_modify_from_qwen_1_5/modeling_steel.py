@@ -1,10 +1,8 @@
 # coding=utf-8
-# Copyright 2024 The Qwen team, Alibaba Group and the HuggingFace Inc. team. All rights reserved.
+# Copyright 2024 The zhanshijin and lishu. All rights reserved.
 #
-# This code is based on EleutherAI's GPT-NeoX library and the GPT-NeoX
-# and OPT implementations in this library. It has been modified from its
-# original forms to accommodate minor architectural differences compared
-# to GPT-NeoX and OPT used by the Meta AI team that trained the model.
+#
+#This model copy from qwen1.5.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +15,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" PyTorch Qwen2 model."""
+""" PyTorch Steel model."""
 import inspect
 import math
 import warnings
@@ -42,7 +40,7 @@ from transformers.utils import (
     logging,
     replace_return_docstrings,
 )
-from configuration_steel import Qwen2Config
+from configuration_steel import SteelConfig
 from softmoe_v3 import SteelSoftMoEV3
 
 if is_flash_attn_2_available():
@@ -70,8 +68,7 @@ def _import_cuda_rmsnorm():
             "https://github.com/Dao-AILab/flash-attention/tree/main/csrc/layer_norm"
         )
 
-_CHECKPOINT_FOR_DOC = "Qwen/Qwen2-7B-beta"
-_CONFIG_FOR_DOC = "Qwen2Config"
+_CONFIG_FOR_DOC = "SteelConfig"
 
 
 # Copied from transformers.models.llama.modeling_llama._get_unpad_data
@@ -87,11 +84,11 @@ def _get_unpad_data(attention_mask):
     )
 
 
-# Copied from transformers.models.llama.modeling_llama.LlamaRMSNorm with Llama->Qwen2
-class Qwen2RMSNorm(nn.Module):
+# Copied from transformers.models.llama.modeling_llama.LlamaRMSNorm with Llama->Steel
+class SteelRMSNorm(nn.Module):
     def __init__(self, hidden_size, eps=1e-6):
         """
-        Qwen2RMSNorm is equivalent to T5LayerNorm
+        SteelRMSNorm is equivalent to T5LayerNorm
         """
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
@@ -112,8 +109,8 @@ class Qwen2RMSNorm(nn.Module):
             return self.weight * hidden_states.to(input_dtype)
 
 
-# Copied from transformers.models.mistral.modeling_mistral.MistralRotaryEmbedding with Mistral->Qwen2
-class Qwen2RotaryEmbedding(nn.Module):
+# Copied from transformers.models.mistral.modeling_mistral.MistralRotaryEmbedding with Mistral->Steel
+class SteelRotaryEmbedding(nn.Module):
     def __init__(self, dim, max_position_embeddings=2048, base=10000, device=None):
         super().__init__()
 
@@ -186,7 +183,7 @@ def apply_rotary_pos_emb(q, k, cos, sin, position_ids, unsqueeze_dim=1):
     return q_embed, k_embed
 
 
-# Copied from transformers.models.mistral.modeling_mistral.MistralMLP with Mistral->Qwen2->Steel
+# Copied from transformers.models.mistral.modeling_mistral.MistralMLP with Mistral->Steel->Steel
 class SteelMLP(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -267,13 +264,13 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
     return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
 
-class Qwen2Attention(nn.Module):
+class SteelAttention(nn.Module):
     """
     Multi-headed attention from 'Attention Is All You Need' paper. Modified to use sliding window attention: Longformer
     and "Generating Long Sequences with Sparse Transformers".
     """
 
-    def __init__(self, config: Qwen2Config, layer_idx: Optional[int] = None):
+    def __init__(self, config: SteelConfig, layer_idx: Optional[int] = None):
         super().__init__()
         self.config = config
         self.layer_idx = layer_idx
@@ -304,7 +301,7 @@ class Qwen2Attention(nn.Module):
         self.v_proj = nn.Linear(self.hidden_size, self.num_key_value_heads * self.head_dim, bias=True)
         self.o_proj = nn.Linear(self.num_heads * self.head_dim, self.hidden_size, bias=False)
 
-        self.rotary_emb = Qwen2RotaryEmbedding(
+        self.rotary_emb = SteelRotaryEmbedding(
             self.head_dim,
             max_position_embeddings=self.max_position_embeddings,
             base=self.rope_theta,
@@ -393,9 +390,9 @@ class Qwen2Attention(nn.Module):
         return attn_output, attn_weights, past_key_value
 
 
-class Qwen2FlashAttention2(Qwen2Attention):
+class SteelFlashAttention2(SteelAttention):
     """
-    Qwen2 flash attention module, following Qwen2 attention module. This module inherits from `Qwen2Attention`
+    Steel flash attention module, following Steel attention module. This module inherits from `SteelAttention`
     as the weights of the module stays untouched. The only required change would be on the forward pass
     where it needs to correctly call the public API of flash attention and deal with padding tokens
     in case the input contains any of them. Additionally, for sliding window attention, we apply SWA only to the bottom
@@ -695,15 +692,15 @@ class Qwen2FlashAttention2(Qwen2Attention):
         )
 
 
-# Copied from transformers.models.mistral.modeling_mistral.MistralSdpaAttention with Mistral->Qwen2
-class Qwen2SdpaAttention(Qwen2Attention):
+# Copied from transformers.models.mistral.modeling_mistral.MistralSdpaAttention with Mistral->Steel
+class SteelSdpaAttention(SteelAttention):
     """
-    Qwen2 attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
-    `Qwen2Attention` as the weights of the module stays untouched. The only changes are on the forward pass to adapt to
+    Steel attention module using torch.nn.functional.scaled_dot_product_attention. This module inherits from
+    `SteelAttention` as the weights of the module stays untouched. The only changes are on the forward pass to adapt to
     SDPA API.
     """
 
-    # Adapted from Qwen2Attention.forward
+    # Adapted from SteelAttention.forward
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -716,7 +713,7 @@ class Qwen2SdpaAttention(Qwen2Attention):
         if output_attentions:
             # TODO: Improve this warning with e.g. `model.config.attn_implementation = "manual"` once this is implemented.
             logger.warning_once(
-                "Qwen2Model is using Qwen2SdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
+                "SteelModel is using SteelSdpaAttention, but `torch.nn.functional.scaled_dot_product_attention` does not support `output_attentions=True`. Falling back to the manual attention implementation, "
                 'but specifying the manual implementation will be required from Transformers version v5.0.0 onwards. This warning can be removed using the argument `attn_implementation="eager"` when loading the model.'
             )
             return super().forward(
@@ -783,15 +780,15 @@ class Qwen2SdpaAttention(Qwen2Attention):
         return attn_output, None, past_key_value
 
 
-QWEN2_ATTENTION_CLASSES = {
-    "eager": Qwen2Attention,
-    "flash_attention_2": Qwen2FlashAttention2,
-    "sdpa": Qwen2SdpaAttention,
+Steel_ATTENTION_CLASSES = {
+    "eager": SteelAttention,
+    "flash_attention_2": SteelFlashAttention2,
+    "sdpa": SteelSdpaAttention,
 }
 
 
-class Qwen2DecoderLayer(nn.Module):
-    def __init__(self, config: Qwen2Config, layer_idx: int):
+class SteelDecoderLayer(nn.Module):
+    def __init__(self, config: SteelConfig, layer_idx: int):
         super().__init__()
         self.hidden_size = config.hidden_size
 
@@ -800,7 +797,7 @@ class Qwen2DecoderLayer(nn.Module):
                 f"Sliding Window Attention is enabled but not implemented for `{config._attn_implementation}`; "
                 "unexpected results may be encountered."
             )
-        self.self_attn = QWEN2_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
+        self.self_attn = Steel_ATTENTION_CLASSES[config._attn_implementation](config, layer_idx)
         if config.mlp_type == "raw":
             mlp_class = SteelMLP
             logger.warning_once(f"mlp_class: SteelMLP")
@@ -825,8 +822,8 @@ class Qwen2DecoderLayer(nn.Module):
         else:
             raise NameError(f"No this FFN type: {config.FFN_type}")
 
-        self.input_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.post_attention_layernorm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.input_layernorm = SteelRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = SteelRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
     def forward(
         self,
@@ -889,7 +886,7 @@ class Qwen2DecoderLayer(nn.Module):
         return outputs
 
 
-QWEN2_START_DOCSTRING = r"""
+Steel_START_DOCSTRING = r"""
     This model inherits from [`PreTrainedModel`]. Check the superclass documentation for the generic methods the
     library implements for all its model (such as downloading or saving, resizing the input embeddings, pruning heads
     etc.)
@@ -899,7 +896,7 @@ QWEN2_START_DOCSTRING = r"""
     and behavior.
 
     Parameters:
-        config ([`Qwen2Config`]):
+        config ([`SteelConfig`]):
             Model configuration class with all the parameters of the model. Initializing with a config file does not
             load the weights associated with the model, only the configuration. Check out the
             [`~PreTrainedModel.from_pretrained`] method to load the model weights.
@@ -907,14 +904,14 @@ QWEN2_START_DOCSTRING = r"""
 
 
 @add_start_docstrings(
-    "The bare Qwen2 Model outputting raw hidden-states without any specific head on top.",
-    QWEN2_START_DOCSTRING,
+    "The bare Steel Model outputting raw hidden-states without any specific head on top.",
+    Steel_START_DOCSTRING,
 )
-class Qwen2PreTrainedModel(PreTrainedModel):
-    config_class = Qwen2Config
+class SteelPreTrainedModel(PreTrainedModel):
+    config_class = SteelConfig
     base_model_prefix = "model"
     supports_gradient_checkpointing = True
-    _no_split_modules = ["Qwen2DecoderLayer"]
+    _no_split_modules = ["SteelDecoderLayer"]
     _skip_keys_device_placement = "past_key_values"
     _supports_flash_attn_2 = True
     _supports_sdpa = True
@@ -932,7 +929,7 @@ class Qwen2PreTrainedModel(PreTrainedModel):
                 module.weight.data[module.padding_idx].zero_()
 
 
-QWEN2_INPUTS_DOCSTRING = r"""
+Steel_INPUTS_DOCSTRING = r"""
     Args:
         input_ids (`torch.LongTensor` of shape `(batch_size, sequence_length)`):
             Indices of input sequence tokens in the vocabulary. Padding will be ignored by default should you provide
@@ -1003,31 +1000,31 @@ QWEN2_INPUTS_DOCSTRING = r"""
 
 
 @add_start_docstrings(
-    "The bare Qwen2 Model outputting raw hidden-states without any specific head on top.",
-    QWEN2_START_DOCSTRING,
+    "The bare Steel Model outputting raw hidden-states without any specific head on top.",
+    Steel_START_DOCSTRING,
 )
-class Qwen2Model(Qwen2PreTrainedModel):
+class SteelModel(SteelPreTrainedModel):
     """
-    Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`Qwen2DecoderLayer`]
+    Transformer decoder consisting of *config.num_hidden_layers* layers. Each layer is a [`SteelDecoderLayer`]
 
     Args:
-        config: Qwen2Config
+        config: SteelConfig
     """
 
-    def __init__(self, config: Qwen2Config):
+    def __init__(self, config: SteelConfig):
         super().__init__(config)
         self.padding_idx = config.pad_token_id
         self.vocab_size = config.vocab_size
 
         self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
         self.layers = nn.ModuleList(
-            [Qwen2DecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
+            [SteelDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
         )
         self._attn_implementation = config._attn_implementation
         logger.warning_once(
-                f"zhanshijin: now use _attn_implementation is {config._attn_implementation}, you can choose from {QWEN2_ATTENTION_CLASSES.keys()}"
+                f"zhanshijin: now use _attn_implementation is {config._attn_implementation}, you can choose from {Steel_ATTENTION_CLASSES.keys()}"
             ) 
-        self.norm = Qwen2RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.norm = SteelRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         self.gradient_checkpointing = False
         # Initialize weights and apply final processing
@@ -1044,7 +1041,7 @@ class Qwen2Model(Qwen2PreTrainedModel):
     def set_input_embeddings(self, value):
         self.embed_tokens = value
 
-    @add_start_docstrings_to_model_forward(QWEN2_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(Steel_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids: torch.LongTensor = None,
@@ -1107,7 +1104,7 @@ class Qwen2Model(Qwen2PreTrainedModel):
             if is_padding_right:
                 raise ValueError(
                     "You are attempting to perform batched generation with padding_side='right'"
-                    " this may lead to unexpected behaviour for Flash Attention version of Qwen2. Make sure to "
+                    " this may lead to unexpected behaviour for Flash Attention version of Steel. Make sure to "
                     " call `tokenizer.padding_side  = 'left'` before tokenizing the input. "
                 )
 
@@ -1193,12 +1190,12 @@ class Qwen2Model(Qwen2PreTrainedModel):
         )
 
 
-class Qwen2ForCausalLM(Qwen2PreTrainedModel):
+class SteelForCausalLM(SteelPreTrainedModel):
     _tied_weights_keys = ["lm_head.weight"]
 
     def __init__(self, config):
         super().__init__(config)
-        self.model = Qwen2Model(config)
+        self.model = SteelModel(config)
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 
@@ -1223,7 +1220,7 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
     def get_decoder(self):
         return self.model
 
-    @add_start_docstrings_to_model_forward(QWEN2_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(Steel_INPUTS_DOCSTRING)
     @replace_return_docstrings(output_type=CausalLMOutputWithPast, config_class=_CONFIG_FOR_DOC)
     def forward(
         self,
@@ -1250,9 +1247,9 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
         Example:
 
         ```python
-        >>> from transformers import AutoTokenizer, Qwen2ForCausalLM
+        >>> from transformers import AutoTokenizer, SteelForCausalLM
 
-        >>> model = Qwen2ForCausalLM.from_pretrained(PATH_TO_CONVERTED_WEIGHTS)
+        >>> model = SteelForCausalLM.from_pretrained(PATH_TO_CONVERTED_WEIGHTS)
         >>> tokenizer = AutoTokenizer.from_pretrained(PATH_TO_CONVERTED_TOKENIZER)
 
         >>> prompt = "Hey, are you conscious? Can you talk to me?"
@@ -1381,9 +1378,9 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
 
 @add_start_docstrings(
     """
-    The Qwen2 Model transformer with a sequence classification head on top (linear layer).
+    The Steel Model transformer with a sequence classification head on top (linear layer).
 
-    [`Qwen2ForSequenceClassification`] uses the last token in order to do the classification, as other causal models
+    [`SteelForSequenceClassification`] uses the last token in order to do the classification, as other causal models
     (e.g. GPT-2) do.
 
     Since it does classification on the last token, it requires to know the position of the last token. If a
@@ -1392,13 +1389,13 @@ class Qwen2ForCausalLM(Qwen2PreTrainedModel):
     padding tokens when `inputs_embeds` are passed instead of `input_ids`, it does the same (take the last value in
     each row of the batch).
     """,
-    QWEN2_START_DOCSTRING,
+    Steel_START_DOCSTRING,
 )
-class Qwen2ForSequenceClassification(Qwen2PreTrainedModel):
+class SteelForSequenceClassification(SteelPreTrainedModel):
     def __init__(self, config):
         super().__init__(config)
         self.num_labels = config.num_labels
-        self.model = Qwen2Model(config)
+        self.model = SteelModel(config)
         self.score = nn.Linear(config.hidden_size, self.num_labels, bias=False)
 
         # Initialize weights and apply final processing
@@ -1410,7 +1407,7 @@ class Qwen2ForSequenceClassification(Qwen2PreTrainedModel):
     def set_input_embeddings(self, value):
         self.model.embed_tokens = value
 
-    @add_start_docstrings_to_model_forward(QWEN2_INPUTS_DOCSTRING)
+    @add_start_docstrings_to_model_forward(Steel_INPUTS_DOCSTRING)
     def forward(
         self,
         input_ids: torch.LongTensor = None,

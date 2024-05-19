@@ -1,6 +1,7 @@
 # coding=utf-8
-# Copyright 2024 The Qwen team, Alibaba Group and the HuggingFace Inc. team. All rights reserved.
+# Copyright 2024 zhanshijin and lishu. All rights reserved.
 #
+# This project copy from qwen1.5
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -12,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-""" Qwen2 model configuration"""
+""" Steel model configuration"""
 
 from transformers.configuration_utils import PretrainedConfig
 from transformers.utils import logging
@@ -24,7 +25,7 @@ logger = logging.get_logger(__name__)
 from transformers.models.deprecated._archive_maps import QWEN2_PRETRAINED_CONFIG_ARCHIVE_MAP  # noqa: F401, E402
 
 
-class Qwen2Config(PretrainedConfig):
+class SteelConfig(PretrainedConfig):
     r"""
     This is the configuration class to store the configuration of a [`Qwen2Model`]. It is used to instantiate a
     Qwen2 model according to the specified arguments, defining the model architecture. Instantiating a configuration
@@ -77,19 +78,7 @@ class Qwen2Config(PretrainedConfig):
             The number of layers that use SWA (Sliding Window Attention). The bottom layers use SWA while the top use full attention.
         attention_dropout (`float`, *optional*, defaults to 0.0):
             The dropout ratio for the attention probabilities.
-
-    ```python
-    >>> from transformers import Qwen2Model, Qwen2Config
-
-    >>> # Initializing a Qwen2 style configuration
-    >>> configuration = Qwen2Config()
-
-    >>> # Initializing a model from the Qwen2-7B style configuration
-    >>> model = Qwen2Model(configuration)
-
-    >>> # Accessing the model configuration
-    >>> configuration = model.config
-    ```"""
+    """
 
     model_type = "qwen2"
     keys_to_ignore_at_inference = ["past_key_values"]

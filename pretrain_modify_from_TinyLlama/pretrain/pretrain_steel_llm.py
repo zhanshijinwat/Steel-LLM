@@ -36,7 +36,7 @@ parent_dir = os.path.dirname(current_dir)
 # from modeling_recurrent_gemma import RecurrentGemmaForCausalLM, RecurrentGemmaDecoderLayer
 # Steel LLM model
 sys.path.append(os.path.join(parent_dir, "model", "steel_modify_from_qwen_1_5"))
-from modeling_steel import Qwen2ForCausalLM, Qwen2DecoderLayer
+from modeling_steel import SteelForCausalLM, SteelDecoderLayer
 from steel_llm_utils import compatible_tiny_llama_config
 
 import logging
@@ -76,7 +76,7 @@ save_step_interval = 5000
 eval_step_interval = 5000
  
 
-weight_decay = 1e-1
+weight_decay = 0.05
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0
@@ -125,7 +125,7 @@ def setup(
         # todo: check param
         strategy = FSDPStrategy(
             # sharding_strategy = "SHARD_GRAD_OP",
-            auto_wrap_policy={Qwen2DecoderLayer},
+            auto_wrap_policy={SteelDecoderLayer},
             activation_checkpointing_policy=None,
             state_dict_type="full",
             limit_all_gathers=True,
@@ -174,7 +174,7 @@ def main(fabric, train_data_dir, val_data_dir, resume, config):
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
-        model = Qwen2ForCausalLM(config)
+        model = SteelForCausalLM(config)
         # print(model.transformer.wte.weight)
         model.apply(model._init_weights) 
         # print(model.transformer.wte.weight)
@@ -183,7 +183,7 @@ def main(fabric, train_data_dir, val_data_dir, resume, config):
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
     with torch.device("meta"):
-        meta_model = Qwen2ForCausalLM(config)
+        meta_model = SteelForCausalLM(config)
         # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
         # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead

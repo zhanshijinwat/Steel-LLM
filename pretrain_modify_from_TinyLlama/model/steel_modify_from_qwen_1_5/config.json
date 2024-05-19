@@ -1,10 +1,10 @@
 {
   "architectures": [
-    "Qwen2ForCausalLM"
+    "SteelForCausalLM"
   ],
   "auto_map": {
-    "AutoConfig": "configuration_steel.Qwen2Config",
-    "AutoModelForCausalLM": "modeling_steel.Qwen2ForCausalLM"
+    "AutoConfig": "configuration_steel.SteelConfig",
+    "AutoModelForCausalLM": "modeling_steel.SteelForCausalLM"
   },
   "attention_dropout": 0.0,
   "bos_token_id": 151643,
