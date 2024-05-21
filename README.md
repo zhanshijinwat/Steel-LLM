@@ -19,6 +19,8 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
 （上传的数据内容请遵守各项法规）
 
 ### 更新
+[2024/5/21] 模型开启正式训练，2个epoch需训练50天，后续不定期放出checkpoint，[训练进度](https://wandb.ai/steel-llm-lab/lightning_logs/reports/Untitled-Report--Vmlldzo4MDMxMjcx/edit?firstReport&runsetFilter)。
+
 [2024/5/19] 基于Qwen1.5完成模型修改，模型大小1.12B：
 - FFN层使用softmax moe，相同参数量下有更高的训练速度
 - 使用双层的SwiGLU

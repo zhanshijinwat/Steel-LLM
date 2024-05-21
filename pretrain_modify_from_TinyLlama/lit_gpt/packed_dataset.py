@@ -426,7 +426,7 @@ def create_dataloader(
 
     for prefix, _ in data_config:
         hash_file_map = {}
-        root_data_dir = str(data_dir / f"{prefix}*")
+        root_data_dir = str(data_dir / f"**/*.bin")
         filenames = sorted(glob.glob(root_data_dir))
         logging.info(f"create_dataloader root path: {root_data_dir}")
         # 计算文件hash值
@@ -437,14 +437,13 @@ def create_dataloader(
             hash_file_map[hash] = f
         hash_file_map = hash_file_map.items()
         hash_file_map = {k: v for k, v in sorted(hash_file_map)}
-        logging.info(f"hash_file_map: {hash_file_map} \n hash_file_map len:{len(hash_file_map)}")
-
+        logging.info(f"hash_file_map: {hash_file_map} \n hash_file_map len:{len(hash_file_map)}")  
         
         add_data_hash_file_map = None
         # find and add data
         if add_new_data_dir != None:
             add_data_hash_file_map = {}
-            add_data_filenames = sorted(glob.glob(str(add_new_data_dir / f"{prefix}*")))
+            add_data_filenames = sorted(glob.glob(str(add_new_data_dir / f"**/*.bin")))
             for f in add_data_filenames:
                 hash = CalcMD5(f)
                 if hash in add_data_hash_file_map:

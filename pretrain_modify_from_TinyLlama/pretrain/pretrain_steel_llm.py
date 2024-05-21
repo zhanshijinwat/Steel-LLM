@@ -43,9 +43,9 @@ import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # model_name = "steel_llm_test_qwen1"
-name = "test_qwen2"
+name = "steel_llm"
 out_dir = Path("out") / name
-TRAIN_DATA_DIR = Path("/data1/step3_final_data/sky_2000")
+TRAIN_DATA_DIR = Path("/data1/step3_final_data")
 # TRAIN_DATA_DIR = Path("/data/step3_train_input/test")
 MODEL_PATH = "../model/steel_modify_from_qwen_1_5"
 # todo: check block size
@@ -61,19 +61,22 @@ USE_FLASH_ATTN =True # "auto"
 # Hyperparameters
 num_of_devices = 8
 global_batch_size = 64*num_of_devices
-learning_rate = 4e-4
+learning_rate = 3e-4
 micro_batch_size = 8
-max_step = 715256 * 2
+# cal step 1: 1640*10**9/4/2048/512 
+# cal day 1: 1640*10**9/4/2048/8/1.4/8/3600/24
+# cal day2: 1640*10**9/4/8/23800/3600/24
+max_step = 392000 * 2
 # lr scheduler
 decay_lr = True
-lr_decay_step = 100_000
-min_lr = 4e-5
-warmup_steps = 10_000
+lr_decay_step = int(max_step*0.9)
+min_lr = 3e-5
+warmup_steps = 5_000
 #---
-log_step_interval = 1
+log_step_interval = 20
 eval_iters = 100 # eval iter
-save_step_interval = 5000
-eval_step_interval = 5000
+save_step_interval = 20000
+eval_step_interval = 20000
  
 
 weight_decay = 0.05
@@ -285,6 +288,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
                 # print days as well
                 f" or {(t1 - total_t0) / (state['iter_num'] - initial_iter) * (max_iters - state['iter_num']) / 3600 / 24:.2f} days. "
                 f"data idx: {train_datasets[0].iterator._curr_idx}/{len(train_datasets[0].iterator._block_idxs)}"
+                f"lr: {lr}"
             )
  
         monitor.on_train_batch_end(

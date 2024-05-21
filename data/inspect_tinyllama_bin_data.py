@@ -17,7 +17,7 @@ def read_header(path):
     return dtype, chunk_size
 
 if __name__ == "__main__":
-    bin_data_dir = "/data/pretrain_input/sky/sky_0000000000.bin"
+    bin_data_dir = "/data1/step3_final_data/chat/chat_process0_0000000001.bin"
     tokenizer = AutoTokenizer.from_pretrained("../model/qwen_moe")
     dtype, chunk_size = read_header(bin_data_dir)
     print(dtype, chunk_size)

@@ -162,14 +162,14 @@ filename_sets = {
     # "sky": "data1/step0_rawdata/sky/data/*jsonl",
     # "wanjuan_zh": "data2/step2_data_cleaning/wanjuan/wanjuan_zh/*jsonl",
     # "wanjuan_en": "data2/step2_data_cleaning/wanjuan/wanjuan_en/*jsonl",
-    "starcode": "data1/step2_data_cleaning/data_juicer_clean_code_data/*jsonl*"
-    # "chat": "data1/step2_data_cleaning/data_juicer_clean_text_data/*jsonl"
+    # "starcode": "data1/step2_data_cleaning/data_juicer_clean_code_data/*jsonl*"
+    "chat": "data1/step2_data_cleaning/data_juicer_clean_text_data/txt_data/*jsonl"
 }
 def prepare(
     source_path: Path = Path("/"),
     # tokenizer地址
     checkpoint_dir: Path = Path("../model/tokenizer_from_qwen_moe_chat"),
-    destination_path: Path = Path("/data1/step3_final_data/starcode"),
+    destination_path: Path = Path("/data1/step3_final_data/chat"),
     sample: bool = False,
     match: str = "",
     max_files = 10000000000,
