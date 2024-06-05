@@ -22,40 +22,34 @@ from lit_gpt.speed_monitor import SpeedMonitorFabric as Monitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger, lazy_load
 from pytorch_lightning.loggers import WandbLogger
+# todo 安装环境用这个loss
 from lit_gpt import FusedCrossEntropyLoss
 import random
 from loguru import logger
-# 目前无法连接wandb
-os.environ["WANDB_MODE"]="offline"
-
 current_file_path = os.path.abspath(__file__)
 current_dir = os.path.dirname(current_file_path)
 parent_dir = os.path.dirname(current_dir)
-# test train code model: qwen1
+# test train code model
 # sys.path.append(os.path.join(parent_dir, "model", "qwen_1_1_8B_chat"))
 # from modeling_qwen import QWenLMHeadModel, QWenBlock
-# recurrentgemma: too slow
-# sys.path.append(os.path.join(parent_dir, "model", "recurrentgemma"))
-# from modeling_recurrent_gemma import RecurrentGemmaForCausalLM, RecurrentGemmaDecoderLayer
-# Steel LLM model
-sys.path.append(os.path.join(parent_dir, "model", "steel_modify_from_qwen_1_5"))
-from modeling_steel import SteelForCausalLM, SteelDecoderLayer
-from steel_llm_utils import compatible_tiny_llama_config
 
+# true model
+sys.path.append(os.path.join(parent_dir, "model", "recurrentgemma"))
+from modeling_recurrent_gemma import RecurrentGemmaForCausalLM, RecurrentGemmaDecoderLayer
+from steel_llm_utils import compatible_tiny_llama_config
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # model_name = "steel_llm_test_qwen1"
-name = "steel_llm"
+name = "test_recurrent_gemma"
 out_dir = Path("out") / name
-TRAIN_DATA_DIR = Path("/data1/step3_final_data")
+TRAIN_DATA_DIR = Path("/data1/step3_final_data/sky")
 # TRAIN_DATA_DIR = Path("/data/step3_train_input/test")
-MODEL_PATH = "../model/steel_modify_from_qwen_1_5"
-# todo: check block size
+MODEL_PATH = "../model/recurrentgemma"
 BLOCK_SIZE = 2048
 # bool / Path
 # RESUME = Path("./out/huggingface_save_8_card/step-000400-iter-001600-ckpt")
-RESUME = Path("/home/calfa100/gqs/Steel-LLM/pretrain_modify_from_TinyLlama/pretrain/out/steel_llm/step-200000-iter-1600000-ckpt")
+RESUME = False
 ADD_NEW_DATA_DIR = None
 # qwen moe pad_token_id
 IGNORE_INDEX = 151643
@@ -63,26 +57,23 @@ USE_FLASH_ATTN =True # "auto"
 
 # Hyperparameters
 num_of_devices = 8
-global_batch_size = 64*num_of_devices
-learning_rate = 3e-4
-micro_batch_size = 8
-# cal step 1: 1640*10**9/4/2048/512 
-# cal day 1: 1640*10**9/4/2048/8/1.4/8/3600/24
-# cal day2: 1640*10**9/4/8/23800/3600/24
-max_step = 392000 * 2
+global_batch_size = 16*num_of_devices
+learning_rate = 4e-4
+micro_batch_size = 2
+max_step = 715256 * 2
 # lr scheduler
 decay_lr = True
-lr_decay_step = int(max_step*0.9)
-min_lr = 3e-5
-warmup_steps = 5_000
+lr_decay_step = 100_000
+min_lr = 4e-5
+warmup_steps = 10_000
 #---
-log_step_interval = 20
+log_step_interval = 1
 eval_iters = 100 # eval iter
-save_step_interval = 20000
-eval_step_interval = 20000
+save_step_interval = 5000
+eval_step_interval = 5000
  
 
-weight_decay = 0.05
+weight_decay = 1e-1
 beta1 = 0.9
 beta2 = 0.95
 grad_clip = 1.0
@@ -91,6 +82,8 @@ batch_size = global_batch_size // num_of_devices
 gradient_accumulation_steps = batch_size // micro_batch_size
 assert gradient_accumulation_steps > 0
 warmup_iters = warmup_steps * gradient_accumulation_steps
+
+
 
 
 max_iters = max_step * gradient_accumulation_steps
@@ -131,7 +124,7 @@ def setup(
         # todo: check param
         strategy = FSDPStrategy(
             # sharding_strategy = "SHARD_GRAD_OP",
-            auto_wrap_policy={SteelDecoderLayer},
+            auto_wrap_policy={RecurrentGemmaDecoderLayer},
             activation_checkpointing_policy=None,
             state_dict_type="full",
             limit_all_gathers=True,
@@ -180,7 +173,7 @@ def main(fabric, train_data_dir, val_data_dir, resume, config):
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
-        model = SteelForCausalLM(config)
+        model = RecurrentGemmaForCausalLM(config)
         # print(model.transformer.wte.weight)
         model.apply(model._init_weights) 
         # print(model.transformer.wte.weight)
@@ -189,7 +182,7 @@ def main(fabric, train_data_dir, val_data_dir, resume, config):
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
     with torch.device("meta"):
-        meta_model = SteelForCausalLM(config)
+        meta_model = RecurrentGemmaForCausalLM(config)
         # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
         # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
@@ -290,8 +283,6 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
                 f" remaining time: {(t1 - total_t0) / (state['iter_num'] - initial_iter) * (max_iters - state['iter_num']) / 3600:.2f} hours. " 
                 # print days as well
                 f" or {(t1 - total_t0) / (state['iter_num'] - initial_iter) * (max_iters - state['iter_num']) / 3600 / 24:.2f} days. "
-                f"data idx: {train_datasets[0].iterator._curr_idx}/{len(train_datasets[0].iterator._block_idxs)}"
-                f"lr: {lr}"
             )
  
         monitor.on_train_batch_end(
@@ -323,7 +314,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
             fabric.print(f"Saving checkpoint to {str(checkpoint_path)!r}")
             # fabric control only save one copy
             fabric.save(os.path.join(checkpoint_path, "state.pth"), state)
-            # train_datasets[0].iterator.save_param(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.json"))
+            train_datasets[0].iterator.save_param(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.json"))
             train_datasets[0].iterator.save_pikle(os.path.join(checkpoint_path, f"data-state-rank-{fabric.global_rank}.pikle"))
             logging.info(f"save train_datasets success...")
             # only worker 0 save ckpt. use fabric while be stuck...
