@@ -22,7 +22,6 @@ from transformers.utils import logging
 logger = logging.get_logger(__name__)
 
 
-from transformers.models.deprecated._archive_maps import QWEN2_PRETRAINED_CONFIG_ARCHIVE_MAP  # noqa: F401, E402
 
 
 class SteelConfig(PretrainedConfig):

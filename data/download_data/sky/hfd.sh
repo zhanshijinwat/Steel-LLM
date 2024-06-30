@@ -65,6 +65,14 @@ check_command() {
     fi
 }
 
+# Mark current repo safe when using shared file system like samba or nfs
+ensure_ownership() {
+    if git status 2>&1 | grep "fatal: detected dubious ownership in repository at" > /dev/null; then
+        git config --global --add safe.directory "${PWD}"
+        printf "${YELLOW}Detected dubious ownership in repository, mark ${PWD} safe using git, edit ~/.gitconfig if you want to reverse this.\n${NC}" 
+    fi
+}
+
 [[ "$TOOL" == "aria2c" ]] && check_command aria2c
 [[ "$TOOL" == "wget" ]] && check_command wget
 check_command curl; check_command git; check_command git-lfs
@@ -82,7 +90,7 @@ echo "Downloading to $LOCAL_DIR"
 
 if [ -d "$LOCAL_DIR/.git" ]; then
     printf "${YELLOW}%s exists, Skip Clone.\n${NC}" "$LOCAL_DIR"
-    cd "$LOCAL_DIR" && GIT_LFS_SKIP_SMUDGE=1 git pull || { printf "${RED}Git pull failed.${NC}\n"; exit 1; }
+    cd "$LOCAL_DIR" && ensure_ownership && GIT_LFS_SKIP_SMUDGE=1 git pull || { printf "${RED}Git pull failed.${NC}\n"; exit 1; }
 else
     REPO_URL="$HF_ENDPOINT/$MODEL_ID"
     GIT_REFS_URL="${REPO_URL}/info/refs?service=git-upload-pack"
@@ -99,19 +107,22 @@ else
         printf "${YELLOW}Executing debug command: curl -v %s\nOutput:${NC}\n" "$GIT_REFS_URL"
         curl -v "$GIT_REFS_URL"; printf "\n${RED}Git clone failed.\n${NC}"; exit 1
     fi
-    echo "git clone $REPO_URL $LOCAL_DIR"
+    echo "GIT_LFS_SKIP_SMUDGE=1 git clone $REPO_URL $LOCAL_DIR"
 
     GIT_LFS_SKIP_SMUDGE=1 git clone $REPO_URL $LOCAL_DIR && cd "$LOCAL_DIR" || { printf "${RED}Git clone failed.\n${NC}"; exit 1; }
-    for file in $(git lfs ls-files | awk '{print $3}'); do
+
+    ensure_ownership
+
+    while IFS= read -r file; do
         truncate -s 0 "$file"
-    done
+    done <<< $(git lfs ls-files | cut -d ' ' -f 3-)
 fi
 
 printf "\nStart Downloading lfs files, bash script:\ncd $LOCAL_DIR\n"
-files=$(git lfs ls-files | awk '{print $3}')
+files=$(git lfs ls-files | cut -d ' ' -f 3-)
 declare -a urls
 
-for file in $files; do
+while IFS= read -r file; do
     url="$HF_ENDPOINT/$MODEL_ID/resolve/main/$file"
     file_dir=$(dirname "$file")
     mkdir -p "$file_dir"
@@ -119,14 +130,14 @@ for file in $files; do
         download_cmd="wget -c \"$url\" -O \"$file\""
         [[ -n "$HF_TOKEN" ]] && download_cmd="wget --header=\"Authorization: Bearer ${HF_TOKEN}\" -c \"$url\" -O \"$file\""
     else
-        download_cmd="aria2c --console-log-level=error -x $THREADS -s $THREADS -k 1M -c \"$url\" -d \"$file_dir\" -o \"$(basename "$file")\""
-        [[ -n "$HF_TOKEN" ]] && download_cmd="aria2c --header=\"Authorization: Bearer ${HF_TOKEN}\" --console-log-level=error -x $THREADS -s $THREADS -k 1M -c \"$url\" -d \"$file_dir\" -o \"$(basename "$file")\""
+        download_cmd="aria2c --console-log-level=error --file-allocation=none -x $THREADS -s $THREADS -k 1M -c \"$url\" -d \"$file_dir\" -o \"$(basename "$file")\""
+        [[ -n "$HF_TOKEN" ]] && download_cmd="aria2c --header=\"Authorization: Bearer ${HF_TOKEN}\" --console-log-level=error --file-allocation=none -x $THREADS -s $THREADS -k 1M -c \"$url\" -d \"$file_dir\" -o \"$(basename "$file")\""
     fi
     [[ -n "$INCLUDE_PATTERN" && ! "$file" == $INCLUDE_PATTERN ]] && printf "# %s\n" "$download_cmd" && continue
     [[ -n "$EXCLUDE_PATTERN" && "$file" == $EXCLUDE_PATTERN ]] && printf "# %s\n" "$download_cmd" && continue
     printf "%s\n" "$download_cmd"
     urls+=("$url|$file")
-done
+done <<< "$files"
 
 for url_file in "${urls[@]}"; do
     IFS='|' read -r url file <<< "$url_file"
@@ -135,7 +146,7 @@ for url_file in "${urls[@]}"; do
     if [[ "$TOOL" == "wget" ]]; then
         [[ -n "$HF_TOKEN" ]] && wget --header="Authorization: Bearer ${HF_TOKEN}" -c "$url" -O "$file" || wget -c "$url" -O "$file"
     else
-        [[ -n "$HF_TOKEN" ]] && aria2c --header="Authorization: Bearer ${HF_TOKEN}" --console-log-level=error -x $THREADS -s $THREADS -k 1M -c "$url" -d "$file_dir" -o "$(basename "$file")" || aria2c --console-log-level=error -x $THREADS -s $THREADS -k 1M -c "$url" -d "$file_dir" -o "$(basename "$file")"
+        [[ -n "$HF_TOKEN" ]] && aria2c --header="Authorization: Bearer ${HF_TOKEN}" --console-log-level=error --file-allocation=none -x $THREADS -s $THREADS -k 1M -c "$url" -d "$file_dir" -o "$(basename "$file")" || aria2c --console-log-level=error --file-allocation=none -x $THREADS -s $THREADS -k 1M -c "$url" -d "$file_dir" -o "$(basename "$file")"
     fi
     [[ $? -eq 0 ]] && printf "Downloaded %s successfully.\n" "$url" || { printf "${RED}Failed to download %s.\n${NC}" "$url"; exit 1; }
 done
