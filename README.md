@@ -23,6 +23,7 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
 （上传的数据内容请遵守各项法规）
 
 ### 更新
+[2024/7/18] 使用8*H800继续训练，wandb：https://wandb.ai/steel-llm-lab/lightning_logs/reports/Untitled-Report--Vmlldzo4NzI1MTQz 
 [2024/6/30] 放出预训练200k个step的checkpoint，[huggingface链接](https://huggingface.co/gqszhanshijin/Steel-LLM/tree/main)
 
 [2024/5/21] 模型开启正式训练，后续不定期放出checkpoint。
@@ -150,7 +151,9 @@ lishu14的知乎：https://www.zhihu.com/people/a-xun-58-5
 
 
 ### 硬件资源
-GPU：8* A100 80G
+GPU：8* H800 80G
+
+~~GPU：8* A100 80G~~
 硬盘：4TB
 
 
