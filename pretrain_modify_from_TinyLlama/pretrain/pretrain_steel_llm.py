@@ -22,11 +22,10 @@ from lit_gpt.speed_monitor import SpeedMonitorFabric as Monitor
 from lit_gpt.speed_monitor import estimate_flops, measure_flops
 from lit_gpt.utils import chunked_cross_entropy, get_default_supported_precision, num_parameters, step_csv_logger, lazy_load
 from pytorch_lightning.loggers import WandbLogger
-from lit_gpt import FusedCrossEntropyLoss
+from lit_gpt.triton_cross_entropy import TritonCrossEntropyLoss
 import random
 from loguru import logger
-# 目前无法连接wandb
-os.environ["WANDB_MODE"]="offline"
+# os.environ["WANDB_MODE"]="offline"
 
 current_file_path = os.path.abspath(__file__)
 current_dir = os.path.dirname(current_file_path)
@@ -47,15 +46,17 @@ logging.basicConfig(level=logging.DEBUG)
 
 # model_name = "steel_llm_test_qwen1"
 name = "steel_llm"
-out_dir = Path("out") / name
-TRAIN_DATA_DIR = Path("/data1/step3_final_data")
+out_dir = Path("/data/gu_data/ckpt") / name
+TRAIN_DATA_DIR = Path("/data/gu_data/step3_input")
 # TRAIN_DATA_DIR = Path("/data/step3_train_input/test")
 MODEL_PATH = "../model/steel_modify_from_qwen_1_5"
 # todo: check block size
 BLOCK_SIZE = 2048
 # bool / Path
-# RESUME = Path("./out/huggingface_save_8_card/step-000400-iter-001600-ckpt")
-RESUME = Path("/home/calfa100/gqs/Steel-LLM/pretrain_modify_from_TinyLlama/pretrain/out/steel_llm/step-200000-iter-1600000-ckpt")
+# resume model and data
+RESUME = False
+# RESUME = Path("/home/calfa100/gqs/Steel-LLM/pretrain_modify_from_TinyLlama/pretrain/out/steel_llm/step-200000-iter-1600000-ckpt")
+ONLY_RESUME_MODEL =  Path("/home/ubuntu/gu/step-220000-iter-1760000-ckpt")
 ADD_NEW_DATA_DIR = None
 # qwen moe pad_token_id
 IGNORE_INDEX = 151643
@@ -67,14 +68,14 @@ global_batch_size = 64*num_of_devices
 learning_rate = 3e-4
 micro_batch_size = 8
 # cal step 1: 1640*10**9/4/2048/512 
-# cal day 1: 1640*10**9/4/2048/8/1.4/8/3600/24
+# cal day 1: 1800*10**9/4/2048/8/1.4/8/3600/24
 # cal day2: 1640*10**9/4/8/23800/3600/24
-max_step = 392000 * 2
+max_step = 430000 * 2
 # lr scheduler
 decay_lr = True
 lr_decay_step = int(max_step*0.9)
 min_lr = 3e-5
-warmup_steps = 5_000
+warmup_steps = 1_000
 #---
 log_step_interval = 20
 eval_iters = 100 # eval iter
@@ -122,6 +123,7 @@ def setup(
     model_path = MODEL_PATH,
     # num/None
     block_size = BLOCK_SIZE,
+    only_resume_model = ONLY_RESUME_MODEL,
 ) -> None:
     precision = precision or get_default_supported_precision(training=True, tpu=False)
     print(precision)
@@ -147,12 +149,12 @@ def setup(
     config = compatible_tiny_llama_config(config, block_size)
     # todo: why not use?
     if devices > 1:
-        fabric.launch(main, train_data_dir, val_data_dir, resume, config)
+        fabric.launch(main, train_data_dir, val_data_dir, resume, config, only_resume_model)
     else:
-        main(fabric, train_data_dir, val_data_dir, resume, config)
+        main(fabric, train_data_dir, val_data_dir, resume, config, only_resume_model)
 
 
-def main(fabric, train_data_dir, val_data_dir, resume, config):
+def main(fabric, train_data_dir, val_data_dir, resume, config, only_resume_model):
     monitor = Monitor(fabric, window_size=2, time_unit="seconds", log_iter_interval=log_iter_interval)
 
     if fabric.global_rank == 0:
@@ -214,12 +216,17 @@ def main(fabric, train_data_dir, val_data_dir, resume, config):
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     ) 
-    # optimizer = FusedAdam(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2),adam_w_mode=True)
+    
     optimizer = fabric.setup_optimizers(optimizer)
 
     state = {"model": model,"optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
-    if resume:
-        state_dir = resume / "state.pth"
+    if resume or only_resume_model:
+        if resume != False:
+            assert(only_resume_model==False)
+            state_dir = resume / "state.pth"
+        else:
+            assert(resume==False)
+            state_dir = only_resume_model / "state.pth"
         fabric.load(state_dir, state)
         fabric.print(f"Resuming state from {resume} success...")
 
@@ -245,7 +252,7 @@ def train(fabric, state, train_dataloader, val_dataloader, monitor, resume, conf
     total_t0 = time.perf_counter()
     
     initial_iter = state["iter_num"]
-    loss_func = FusedCrossEntropyLoss(ignore_index = IGNORE_INDEX)
+    loss_func = TritonCrossEntropyLoss(ignore_index = IGNORE_INDEX)
     fabric.print(f"start state: {state}") 
     for  train_data in train_dataloader:
         # resume loader state. This is not elegant but it works. Should rewrite it in the future.
@@ -345,9 +352,8 @@ def validate(fabric: L.Fabric, model: torch.nn.Module, val_dataloader: DataLoade
         input_ids = val_data[:, 0 : model.config.block_size].contiguous()
         targets = val_data[:, 1 : model.config.block_size + 1].contiguous()
         logits = model(input_ids)
-        loss = chunked_cross_entropy(logits, targets, chunk_size=0)
-
-        loss_func = FusedCrossEntropyLoss()
+        #loss = chunked_cross_entropy(logits, targets, chunk_size=0)
+        loss_func = TritonCrossEntropyLoss()
         loss = loss_func(logits, targets)
         losses[k] = loss.item()
         
