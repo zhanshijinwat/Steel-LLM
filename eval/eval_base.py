@@ -72,22 +72,26 @@ def get_logits(tokenizer, model, inputs: List[str]):
 
     outputs = model.generate(
             input_ids,
-            max_new_tokens=30,
+            max_new_tokens=1,
             temperature = 0.001,
             output_scores = True,
             return_dict_in_generate=True
         )
     # 输出答案
     generated_ids = outputs["sequences"]
+    generated_ids = [
+    output_ids[len(input_ids):] for input_ids, output_ids in zip(input_ids, generated_ids)
+]
     generated_str = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+    print("string:",generated_str,len(outputs["scores"])) 
     outputs = outputs["scores"]
     print("======================")
     print(inputs)
     print("-")
-    print(generated_str)
-    logits = outputs[-1]
+    print("answer:", generated_str)
+    logits = outputs[0]
     log_probs = torch.nn.functional.softmax(logits, dim=-1)
-    return log_probs, {"tokens": tokens}
+    return log_probs, {"tokens": tokens}, generated_str
 
 
 @torch.no_grad()
@@ -129,19 +133,23 @@ def eval_subject(
             if 'answer' in row:
                 answer_list.append(row['answer'])
 
-        logits, input_info = get_logits(tokenizer, model, full_prompt_list)
+        logits, input_info,generated_str= get_logits(tokenizer, model, full_prompt_list)
+        generated_str = [generated_str]
+        assert(len(answer_list)==1)
         softval = logits.gather(1, choices_ids.expand(logits.size(0), -1)).softmax(1)
         if softval.dtype in {torch.bfloat16, torch.float16}:
             softval = softval.to(dtype=torch.float32)
         probs = softval.detach().cpu().numpy()
-
+        print(probs.shape)
+ 
         for i in range(len(probs)):
             for j, choice in enumerate(choices):
                 all_probs[f"prob_{choice}"].append(probs[i][j])
             pred = {0: "A", 1: "B", 2: "C", 3: "D"}[np.argmax(probs[i])]
-
+            pred = generated_str[i]
             if answer_list != []:
                 correct = 1 if pred == answer_list[i] else 0
+                print(f"pred:{pred} answer:{ answer_list[i]} correct:{correct}")
                 score.append(correct)
                 if args.debug:
                     print(f'{question} pred: {pred} ref: {answer_list[i]}')
@@ -433,7 +441,7 @@ if __name__ == "__main__":
         "--checkpoint-path",
         type=str,
         help="Checkpoint path",
-        default="xxx",
+        default="/data/model/llm/hf_model/steel-llm-step-660000-ckpt",
     )
     parser.add_argument("-s", "--seed", type=int, default=1234, help="Random seed")
 

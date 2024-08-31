@@ -10,7 +10,7 @@ from tqdm import tqdm
 from transformers.trainer_utils import set_seed
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.generation import GenerationConfig
-
+import random
 '''
 wget https://huggingface.co/datasets/ceval/ceval-exam/resolve/main/ceval-exam.zip
 mkdir data/ceval
@@ -96,9 +96,33 @@ def extract_choice(gen, prompt, choice_list):
 
 def format_example(line):
     example = line["question"] + "\n\n"
-    for choice in choices:
-        example += f'{choice}. {line[f"{choice}"]}\n'
-    return example
+    answer = line["answer"] 
+    print(line)
+    shuffle_choice = False
+    # 打乱答案顺序
+    if shuffle_choice:
+        all_choices = []
+        for idx, choice in enumerate(choices):
+            all_choices.append((choice, line[f"{choice}"]))
+        random.shuffle(all_choices)
+        idx_to_choice = {0:"A", 1:"B", 2:"C", 3:"D"}
+        new_answer_idx = None
+        for i in range(len(all_choices)):
+            if all_choices[i][0]==answer:
+                new_answer_idx = i
+                new_answer = idx_to_choice[new_answer_idx]
+                break
+        assert(new_answer_idx != None)
+
+        for i, choice in enumerate(choices):
+            example += f'{choice}. {all_choices[i][1]}\n'
+        print(example, new_answer) 
+        print("=================================")
+        return example, new_answer
+    else:
+        for choice in choices:
+            example += f'{choice}. {line[f"{choice}"]}\n'
+        return example, answer
 
 
 def extract_answer(response, row):
@@ -140,31 +164,44 @@ def eval_subject(
     score = []
 
     for _, row in tqdm(test_df.iterrows(), total=len(test_df)):
-        question = format_example(row)
-        # few_shot = "下面是3个单选题的示例：\n\n 1.下列设备属于资源子网的是____。\nA. 计算机软件\nB. 网桥\nC. 交换机\nD. 路由器\n答案是A\n\n2.滑动窗口的作用是____。\nA. 流量控制\nB. 拥塞控制\nC. 路由控制\nD. 差错控制\n答案是A\n\n3.在OSI参考模型中，直接为会话层提供服务的是____。\nA. 应用层\nB. 表示层\nC. 传输层\nD. 网络层\n答案是C\n\n"
+        question, answer = format_example(row)
+        question = question.replace("____", "。")
+        #few_shot = "下面是3个单选题的示例：\n\n 1.下列设备属于资源子网的是____。\nA. 计算机软件\nB. 网桥\nC. 交换机\nD. 路由器\n答案是A\n\n2.滑动窗口的作用是____。\nA. 流量控制\nB. 拥塞控制\nC. 路由控制\nD. 差错控制\n答案是A\n\n3.在OSI参考模型中，直接为会话层提供服务的是____。\nA. 应用层\nB. 表示层\nC. 传输层\nD. 网络层\n答案是C\n\n"
         few_shot = ""
-        question = few_shot+"以下是一道单选题，请给出答案：\n\n"+question+"答案是"
-        input_ids = tokenizer([question], padding='longest')["input_ids"]
+        question = f"以下是一道选择题，请直接给出答案。"+question+"\n"+"答案："
+        messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": question}
+                ]
+        text = tokenizer.apply_chat_template(
+                messages,
+                tokenize=False,
+                add_generation_prompt=True
+                )
+        input_ids = tokenizer([text], padding='longest')["input_ids"]
         input_ids = torch.tensor(input_ids, device=model.device)
         generated_ids = model.generate(
             input_ids,
             max_new_tokens=5,
             temperature = 0.001,
         )
+        generated_ids = [
+        output_ids[len(input_ids):] for input_ids, output_ids in zip(input_ids, generated_ids)
+        ]
         response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
         print(question)
         print("↓"*10)
         response = response.replace(question, "")
         print("response:", response)
         pred = extract_answer(response, row)
-        print("predict:", pred)
+        print("predict:", pred, "answer:",answer)
         print("======================") 
 
         if "answer" in row:
-            correct = 1 if pred == row["answer"] else 0
+            correct = 1 if pred == answer else 0
             score.append(correct)
             if args.debug:
-                print(f'{question} pred: {pred} ref: {row["answer"]}')
+                print(f'{question} pred: {pred} ref: {answer}')
         responses.append(response)
         result.append(pred)
 
@@ -444,7 +481,9 @@ if __name__ == "__main__":
         "--checkpoint-path",
         type=str,
         help="Checkpoint path",
-        default="xxx",
+        # 7w选择题（from llam3-syne）:/data/model/llm/fintuned_model/steel_7w_llma3syne/checkpoint-597
+        # qwen2-0.5B-chat:/data/model/qwen2_05_chat
+        default="/data/model/qwen2_15B_chat",
     )
     parser.add_argument("-s", "--seed", type=int, default=1234, help="Random seed")
 
