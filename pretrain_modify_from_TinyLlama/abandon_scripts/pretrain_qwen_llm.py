@@ -37,26 +37,24 @@ parent_dir = os.path.dirname(current_dir)
 # sys.path.append(os.path.join(parent_dir, "model", "recurrentgemma"))
 # from modeling_recurrent_gemma import RecurrentGemmaForCausalLM, RecurrentGemmaDecoderLayer
 # Steel LLM model
-sys.path.append(os.path.join(parent_dir, "model", "steel_modify_from_qwen_1_5"))
-from modeling_steel import SteelForCausalLM, SteelDecoderLayer
+sys.path.append(os.path.join(parent_dir, "model", "qwen_1_1_8B_chat"))
+from modeling_qwen import QWenLMHeadModel, QWenBlock
 from steel_llm_utils import compatible_tiny_llama_config
 
 import logging
 logging.basicConfig(level=logging.DEBUG)
 
 # model_name = "steel_llm_test_qwen1"
-name = "steel_llm"
-out_dir = Path("/data/gu_data/ckpt") / name
+name = "qwen1"
+out_dir = Path("out") / name
 TRAIN_DATA_DIR = Path("/data/gu_data/step3_input")
 # TRAIN_DATA_DIR = Path("/data/step3_train_input/test")
-MODEL_PATH = "../model/steel_modify_from_qwen_1_5"
+MODEL_PATH = "../model/qwen_1_1_8B_chat"
 # todo: check block size
 BLOCK_SIZE = 2048
 # bool / Path
-# resume model and data
-RESUME = Path("/data/gu_data/ckpt/steel_llm/step-860000-iter-6880000-ckpt")
+RESUME = False
 # RESUME = Path("/home/calfa100/gqs/Steel-LLM/pretrain_modify_from_TinyLlama/pretrain/out/steel_llm/step-200000-iter-1600000-ckpt")
-ONLY_RESUME_MODEL =  False
 ADD_NEW_DATA_DIR = None
 # qwen moe pad_token_id
 IGNORE_INDEX = 151643
@@ -66,16 +64,16 @@ USE_FLASH_ATTN =True # "auto"
 num_of_devices = 8
 global_batch_size = 64*num_of_devices
 learning_rate = 3e-4
-micro_batch_size = 8
+micro_batch_size = 4
 # cal step 1: 1640*10**9/4/2048/512 
-# cal day 1: 1800*10**9/4/2048/8/1.4/8/3600/24
+# cal day 1: 1640*10**9/4/2048/8/1.4/8/3600/24
 # cal day2: 1640*10**9/4/8/23800/3600/24
-max_step = 430000*2+220000
+max_step = 392000 * 2
 # lr scheduler
 decay_lr = True
-lr_decay_step = int(max_step)
-min_lr = 0.0
-warmup_steps = 1_000
+lr_decay_step = int(max_step*0.9)
+min_lr = 3e-5
+warmup_steps = 5_000
 #---
 log_step_interval = 20
 eval_iters = 100 # eval iter
@@ -123,7 +121,6 @@ def setup(
     model_path = MODEL_PATH,
     # num/None
     block_size = BLOCK_SIZE,
-    only_resume_model = ONLY_RESUME_MODEL,
 ) -> None:
     precision = precision or get_default_supported_precision(training=True, tpu=False)
     print(precision)
@@ -133,7 +130,7 @@ def setup(
         # todo: check param
         strategy = FSDPStrategy(
             # sharding_strategy = "SHARD_GRAD_OP",
-            auto_wrap_policy={SteelDecoderLayer},
+            auto_wrap_policy={QWenBlock},
             activation_checkpointing_policy=None,
             state_dict_type="full",
             limit_all_gathers=True,
@@ -149,12 +146,12 @@ def setup(
     config = compatible_tiny_llama_config(config, block_size)
     # todo: why not use?
     if devices > 1:
-        fabric.launch(main, train_data_dir, val_data_dir, resume, config, only_resume_model)
+        fabric.launch(main, train_data_dir, val_data_dir, resume, config)
     else:
-        main(fabric, train_data_dir, val_data_dir, resume, config, only_resume_model)
+        main(fabric, train_data_dir, val_data_dir, resume, config)
 
 
-def main(fabric, train_data_dir, val_data_dir, resume, config, only_resume_model):
+def main(fabric, train_data_dir, val_data_dir, resume, config):
     monitor = Monitor(fabric, window_size=2, time_unit="seconds", log_iter_interval=log_iter_interval)
 
     if fabric.global_rank == 0:
@@ -182,7 +179,7 @@ def main(fabric, train_data_dir, val_data_dir, resume, config, only_resume_model
     fabric.print(f"Loading model with {config.__dict__}")
     t0 = time.perf_counter()
     with fabric.init_module(empty_init=False):
-        model = SteelForCausalLM(config)
+        model = QWenLMHeadModel(config)
         # print(model.transformer.wte.weight)
         model.apply(model._init_weights) 
         # print(model.transformer.wte.weight)
@@ -191,7 +188,7 @@ def main(fabric, train_data_dir, val_data_dir, resume, config, only_resume_model
     fabric.print(f"Time to instantiate model: {time.perf_counter() - t0:.02f} seconds.")
     fabric.print(f"Total parameters {num_parameters(model):,}")
     with torch.device("meta"):
-        meta_model = SteelForCausalLM(config)
+        meta_model = QWenLMHeadModel(config)
         # "estimated" is not as precise as "measured". Estimated is optimistic but widely used in the wild.
         # When comparing MFU or FLOP numbers with other projects that use estimated FLOPs,
         # consider passing `SpeedMonitor(flops_per_batch=estimated_flops)` instead
@@ -216,17 +213,12 @@ def main(fabric, train_data_dir, val_data_dir, resume, config, only_resume_model
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2), foreach=False
     ) 
-    
+    # optimizer = FusedAdam(model.parameters(), lr=learning_rate, weight_decay=weight_decay, betas=(beta1, beta2),adam_w_mode=True)
     optimizer = fabric.setup_optimizers(optimizer)
 
     state = {"model": model,"optimizer": optimizer, "hparams": hparams, "iter_num": 0, "step_count": 0}
-    if resume or only_resume_model:
-        if resume != False:
-            assert(only_resume_model==False)
-            state_dir = resume / "state.pth"
-        else:
-            assert(resume==False)
-            state_dir = only_resume_model / "state.pth"
+    if resume:
+        state_dir = resume / "state.pth"
         fabric.load(state_dir, state)
         fabric.print(f"Resuming state from {resume} success...")
 

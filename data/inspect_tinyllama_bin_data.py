@@ -17,8 +17,8 @@ def read_header(path):
     return dtype, chunk_size
 
 if __name__ == "__main__":
-    bin_data_dir = "/data1/step3_final_data/chat/chat_process0_0000000001.bin"
-    tokenizer = AutoTokenizer.from_pretrained("../model/qwen_moe")
+    bin_data_dir = "/data/gu_data/step3_input/wanjuan_zh/wanjuan_zh_process8_0000000000.bin"
+    tokenizer = AutoTokenizer.from_pretrained("../pretrain_modify_from_TinyLlama/model/tokenizer_from_qwen_moe_chat")
     dtype, chunk_size = read_header(bin_data_dir)
     print(dtype, chunk_size)
     mmap = np.memmap(bin_data_dir, mode="r", order="C", offset=HDR_SIZE)
@@ -32,3 +32,5 @@ if __name__ == "__main__":
     print(arr2[:10])
     text = tokenizer.decode(arr1)
     print("len: ", len(arr1), len(text), np.dtype(dtype).itemsize)
+    print(arr1[-50:])
+    print(text)
