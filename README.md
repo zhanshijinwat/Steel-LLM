@@ -14,15 +14,15 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
         🤗 <a href="https://huggingface.co/gqszhanshijin/Steel-LLM">Hugging Face</a>&nbsp&nbsp 
         &nbsp&nbsp 📑 <a href="https://www.zhihu.com/people/zhan-shi-jin-27">Blog</a>
 
-"Steel(钢)"取名灵感来源于华北平原一只优秀的乐队“万能青年旅店（万青）”。乐队在做一专的时候条件有限，自称是在“土法炼钢”，但却是一张神专。我们训练LLM的条件同样有限，但也希望能炼出好“钢”来。为了让能持续关注我们的同学们有一些参与感，并在未来使用Steel-LLM时让模型更有可能输出你想要的内容，我们会持续收集大家的数据，各种亚文化、冷知识、歌词、小众读物、只有你自己知道的小秘密等等都可以，并训练到我们的LLM中。改编万青一专简介的一句话作为结束语：Steel-LLM完成之时，神经元已经被万亿数据填满。我们渴望这个塞了很多东西的模型还能为你们的数据留下丝缕空地。这样的话，所有用到模型的人，就有可能并肩站在一起。
+"Steel(钢)"取名灵感来源于华北平原一只优秀的乐队“万能青年旅店（万青）”。乐队在做一专的时候条件有限，自称是在“土法炼钢”，但却是一张神专。我们训练LLM的条件同样有限，但也希望能炼出好“钢”来。
 
 ## 🔔 公告 
-### 数据收集
-可以将想训练进模型的数据在问卷中填写。文本不长可以直接粘贴进问卷，如果文本较长请尽量存在txt中并上传。PDF等不好处理的文件将会在项目后期再进行处理并训练。问卷链接：https://d8g1a0vwre.feishu.cn/share/base/form/shrcnASVyyN0ccXxPMOSrMVlzfb
-
-（上传的数据内容请遵守各项法规）
 
 ### 更新
+[2024/9/2] HuggingFace更新了480k、660k、720k、980k、1060k（最后一个checkpoint）step的checkpoint。
+
+[2024/8/18] 预训练已经完成，后续进行微调以及评测
+
 [2024/7/18] 使用8*H800继续训练，wandb：https://wandb.ai/steel-llm-lab/lightning_logs/reports/Untitled-Report--Vmlldzo4NzI1MTQz
 
 [2024/6/30] 放出预训练200k个step的checkpoint，[huggingface链接](https://huggingface.co/gqszhanshijin/Steel-LLM/tree/main)
@@ -33,7 +33,7 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
 - FFN层使用softmax moe，相同参数量下有更高的训练速度
 - 使用双层的SwiGLU
 
-相关博客内容撰写中。。。
+相关博客:https://zhuanlan.zhihu.com/p/700395878
 
 [2024/5/5] 预训练程序修改相关的博客：https://zhuanlan.zhihu.com/p/694223107
 
@@ -159,10 +159,6 @@ GPU：8* H800 80G
 
 
 ## 🧑‍🤝‍🧑 交流
-欢迎加入交流群,如二维码过期可添加微信：a1843450905
-<div align="center">
-  <img src=".github/qun_0718.jpg" width="200"/>
-</div>
-
+欢迎加入交流群,人数已超过200，添加微信入群：a1843450905
 
 
