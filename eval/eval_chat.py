@@ -27,7 +27,7 @@ def load_models_tokenizer(args):
         args.checkpoint_path, trust_remote_code=True
     )
     model = AutoModelForCausalLM.from_pretrained(
-        args.checkpoint_path, device_map="auto", trust_remote_code=True
+        args.checkpoint_path, device_map=args.device, trust_remote_code=True
     ).eval()
     model.generation_config = GenerationConfig.from_pretrained(
         args.checkpoint_path, trust_remote_code=True
@@ -165,10 +165,11 @@ def eval_subject(
 
     for _, row in tqdm(test_df.iterrows(), total=len(test_df)):
         question, answer = format_example(row)
-        question = question.replace("____", "。")
+        question = question.replace("____。", "( )")
         #few_shot = "下面是3个单选题的示例：\n\n 1.下列设备属于资源子网的是____。\nA. 计算机软件\nB. 网桥\nC. 交换机\nD. 路由器\n答案是A\n\n2.滑动窗口的作用是____。\nA. 流量控制\nB. 拥塞控制\nC. 路由控制\nD. 差错控制\n答案是A\n\n3.在OSI参考模型中，直接为会话层提供服务的是____。\nA. 应用层\nB. 表示层\nC. 传输层\nD. 网络层\n答案是C\n\n"
         few_shot = ""
-        question = f"以下是一道选择题，请直接给出答案。"+question+"\n"+"答案："
+        question = f"以下是一道单选题:\n{question}请给出答案。\n"
+        # question = f"以下是一道单选题:\n{question}请先给出解释再给出答案。\n"
         messages = [
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": question}
@@ -182,7 +183,7 @@ def eval_subject(
         input_ids = torch.tensor(input_ids, device=model.device)
         generated_ids = model.generate(
             input_ids,
-            max_new_tokens=5,
+            max_new_tokens=64,
             temperature = 0.001,
         )
         generated_ids = [
@@ -471,7 +472,10 @@ def main(args):
             overwrite=args.overwrite,
         )
         dev_result[subject_name] = score
+    
     cal_ceval(dev_result)
+    print("↑"*20)
+    print(f"{args.checkpoint_path} cal acc")
 
 
 if __name__ == "__main__":
@@ -483,7 +487,16 @@ if __name__ == "__main__":
         help="Checkpoint path",
         # 7w选择题（from llam3-syne）:/data/model/llm/fintuned_model/steel_7w_llma3syne/checkpoint-597
         # qwen2-0.5B-chat:/data/model/qwen2_05_chat
-        default="/data/model/qwen2_15B_chat",
+        default="/data/model/llm/fintuned_model/train_ceval_job/10epoch_5e5",
+    )
+    parser.add_argument(
+        "-dev",
+        "--device",
+        type=str,
+        help="Checkpoint path",
+        # 7w选择题（from llam3-syne）:/data/model/llm/fintuned_model/steel_7w_llma3syne/checkpoint-597
+        # qwen2-0.5B-chat:/data/model/qwen2_05_chat
+        default="cuda:0",
     )
     parser.add_argument("-s", "--seed", type=int, default=1234, help="Random seed")
 
@@ -499,12 +512,12 @@ if __name__ == "__main__":
     group.add_argument(
         "--overwrite",
         action="store_true",
-        default=False,
+        default=True,
         help="Overwrite existed results",
     )
-
     args = parser.parse_args()
     set_seed(args.seed)
     import sys
+    print(f"start eval checkpoint: {args.checkpoint_path}")
     sys.path.append(args.checkpoint_path)
     main(args)
