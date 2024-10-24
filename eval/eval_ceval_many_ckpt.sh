@@ -1,9 +1,13 @@
 
 
-python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_200wchoice_selfcog_ruozhiba/checkpoint-16000
-python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_200wchoice_selfcog_ruozhiba/checkpoint-20000
-python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_200wchoice_selfcog_ruozhiba/checkpoint-24000
-python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_200wchoice_selfcog_ruozhiba/checkpoint-27369
+python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_390wchoice_selfcog_ruozhiba_bz8/checkpoint-24000
+python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_390wchoice_selfcog_ruozhiba_bz8/checkpoint-20000
+python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_390wchoice_selfcog_ruozhiba_bz8/checkpoint-16000
+python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_390wchoice_selfcog_ruozhiba_bz8/checkpoint-12000
+python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_390wchoice_selfcog_ruozhiba_bz8/checkpoint-10000
+python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_390wchoice_selfcog_ruozhiba_bz8/checkpoint-8000
+python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_390wchoice_selfcog_ruozhiba_bz8/checkpoint-4000
+# python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/from_pretrain_70wchineseinfinity_20wchoice_selfcog_ruozhiba/checkpoint-27369
 
 #====================================
 # python -u eval_chat.py --checkpoint-path /data/model/llm/fintuned_model/70wchineseinfinity_200wchoice_selfcog_ruozhiba_cmmlu/checkpoint-16000
