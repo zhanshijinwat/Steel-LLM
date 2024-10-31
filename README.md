@@ -11,8 +11,8 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
   <img src=".github/steel.png" width="200"/>
 </div>
 <p align="center">
-        🤗 <a href="https://huggingface.co/gqszhanshijin/Steel-LLM">Hugging Face</a>&nbsp&nbsp 
-        &nbsp&nbsp 📑 <a href="https://www.zhihu.com/people/zhan-shi-jin-27">Blog</a>
+        🤗 <a href="https://huggingface.co/gqszhanshijin/Steel-LLM">Hugging Face</a>&nbsp&nbsp🤖 <a href="https://www.modelscope.cn/models/zhanshijin/Steel-LLM">modelscope</a>&nbsp&nbsp
+        &nbsp&nbsp 📑 <a href="https://www.zhihu.com/people/zhan-shi-jin-27">Blog</a>&nbsp&nbsp&nbsp&nbsp🌐公众号：炼钢AI 
 
 "Steel(钢)"取名灵感来源于华北平原一只优秀的乐队“万能青年旅店（万青）”。乐队在做一专的时候条件有限，自称是在“土法炼钢”，但却是一张神专。我们训练LLM的条件同样有限，但也希望能炼出好“钢”来。
 
@@ -48,7 +48,6 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
 [2024/4/14] 完成数据收集与处理，生成预训练程序所需要的bin文件。更新数据收集与处理相关的博客：https://zhuanlan.zhihu.com/p/687338497
 
 ### 技术分享
-欢迎关注我的微信公众号：“炼钢AI”
 
 zhanshijin的知乎：https://www.zhihu.com/people/zhan-shi-jin-27
 
@@ -162,6 +161,63 @@ lishu14的知乎：https://www.zhihu.com/people/a-xun-58-5
 
 `python Steel-LLM/pretrain_modify_from_TinyLlama/pretrain/pretrain_steel_llm.py`
 
+### 评估
+Steel-LLM在CEVAL和CMMLU上进行了测试。Steel-LLM旨在训练一个中文LLM，80%的训练数据都是中文，因此并没有在英文benchmark上进行评测。
+其他模型的指标来自于CEVAL论文、MiniCPM技术报告、MAP-Neo技术报告等途径。更多模型的指标可查看之前的<a href=https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew>博客</a>
+
+|                 | CEVAL | CMMLU |
+|-----------------|-------|-------|
+| Steel-LLM       | 38.57 | 33.48 |
+| ChatGPT         | 51.0  | -     |
+| GPT4            | 66.4  | -     |
+| ChatGLM-6B      | 38.9  | -     |
+| Moss            | 33.1  | -     |
+| LLAMA-65B       | 34.7  | -     |
+| Tiny-Llama-1.1B | 25.02 | 24.03 |
+| Qwen-7B         | 58.96 | 60.35 |
+| Gemma-7B        | 42.57 | 44.20 |
+| Qwen-1.8B       | 49.81 | 45.32 |
+| mini-CPM-1.2B   | 49.14 | 46.81 |
+| Phi2(2B)        | 23.37 | 24.18 |
+| OLMo-7B         | 35.18 | 35.55 |
+| MAP-NEO-7B      | 56.97 | 55.01 |
+
+## ⛏️ 快速使用
+```python
+from modelscope import AutoModelForCausalLM, AutoTokenizer
+
+model_name = "zhanshijin/Steel-LLM"
+
+model = AutoModelForCausalLM.from_pretrained(
+    model_name,
+    torch_dtype="auto",
+    device_map="auto"
+)
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+prompt = "你是谁开发的"
+messages = [
+    {"role": "user", "content": prompt}
+]
+text = tokenizer.apply_chat_template(
+    messages,
+    tokenize=False,
+    add_generation_prompt=True
+)
+model_inputs = tokenizer([text], return_tensors="pt").to(model.device)
+
+generated_ids = model.generate(
+    **model_inputs,
+    max_new_tokens=512
+)
+generated_ids = [
+    output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+]
+
+response = tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
+print(response)
+
+```
 
 ### 硬件资源
 GPU：8* H800 80G
