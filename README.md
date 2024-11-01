@@ -29,7 +29,7 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
 
 [2024/8/18] 预训练已经完成，后续进行微调以及评测
 
-[2024/7/18] 使用8*H800继续训练，wandb：https://wandb.ai/steel-llm-lab/lightning_logs/reports/Untitled-Report--Vmlldzo4NzI1MTQz
+[2024/7/18] 使用8*H800继续训练，wandb：https://api.wandb.ai/links/steel-llm-lab/vqf297nr
 
 [2024/6/30] 放出预训练200k个step的checkpoint，[huggingface链接](https://huggingface.co/gqszhanshijin/Steel-LLM/tree/main)
 
