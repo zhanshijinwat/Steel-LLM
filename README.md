@@ -165,22 +165,24 @@ lishu14的知乎：https://www.zhihu.com/people/a-xun-58-5
 Steel-LLM在CEVAL和CMMLU上进行了测试。Steel-LLM旨在训练一个中文LLM，80%的训练数据都是中文，因此并没有在英文benchmark上进行评测。
 其他模型的指标来自于CEVAL论文、MiniCPM技术报告、MAP-Neo技术报告等途径。更多模型的指标可查看之前的<a href=https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew>博客</a>
 
-|                 | CEVAL | CMMLU |
-|-----------------|-------|-------|
-| Steel-LLM       | 38.57 | 33.48 |
-| ChatGPT         | 51.0  | -     |
-| GPT4            | 66.4  | -     |
-| ChatGLM-6B      | 38.9  | -     |
-| Moss            | 33.1  | -     |
-| LLAMA-65B       | 34.7  | -     |
-| Tiny-Llama-1.1B | 25.02 | 24.03 |
-| Qwen-7B         | 58.96 | 60.35 |
-| Gemma-7B        | 42.57 | 44.20 |
-| Qwen-1.8B       | 49.81 | 45.32 |
-| mini-CPM-1.2B   | 49.14 | 46.81 |
-| Phi2(2B)        | 23.37 | 24.18 |
-| OLMo-7B         | 35.18 | 35.55 |
-| MAP-NEO-7B      | 56.97 | 55.01 |
+|                              | CEVAL  | CMMLU |
+|------------------------------|--------|-------|
+| Steel-LLM                    | 38.57  | 33.48 |
+| Tiny-Llama-1.1B              | 25.02  | 24.03 |
+| Gemma-2b-it                  | 32.3   | 33.07 |
+| Phi2(2B)	                    | 23.37	 | 24.18 |
+| Deepseek-coder-1.3B-instruct |  28.33 | 27.75 |
+| CT-LLM-SFT-2B                | 41.54  | 41.48 |
+| MiniCPM-2B-sft-fp32          | 49.14  | 51.0  |
+| Qwen1.5-1.8B-Chat            | 56.84  | 54.11 |
+| ChatGLM-6B                   | 38.9   | -     |
+| Moss                         | 33.1   | -     |
+| LLAMA-65B                    | 34.7   | -     |
+| Qwen-7B                      | 58.96  | 60.35 |
+| Gemma-7B                     | 42.57  | 44.20 |
+| OLMo-7B                      | 35.18  | 35.55 |
+| MAP-NEO-7B                   | 56.97  | 55.01 |
+
 
 ## ⛏️ 快速使用
 ```python
