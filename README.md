@@ -19,11 +19,13 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
 ## 🔔 公告 
 
 ### 更新
+[2024/11/13] 🔥发布一篇项目汇总文章：https://mp.weixin.qq.com/s/POUugkCNZTzmlKWZVVD1CQ🔥  ，技术报告筹备中。。。
+
 [2024/10/29] 基于Steel-LLM后续进行sft优化（主要集中在sft样本筛选）和强化学习的训练。
 
 [2024/10/28]更新了第一版chat模型，在ceval达到了38分，cmmlu达到了33分。
 
-[2024/10/24]🔥发布了Steel-LLM微调和评估的细节。微调时探索了cot、模型刷榜等实验。博客地址：https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew🔥
+[2024/10/24]发布了Steel-LLM微调和评估的细节。微调时探索了cot、模型刷榜等实验。博客地址：https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew
 
 [2024/9/2] HuggingFace更新了480k、660k、720k、980k、1060k（最后一个checkpoint）step的checkpoint。
 
