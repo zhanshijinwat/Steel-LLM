@@ -17,7 +17,7 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
         </a>&nbsp&nbsp
         <a href="https://www.modelscope.cn/models/zhanshijin/Steel-LLM"><img alt="Static Badge" src="https://img.shields.io/badge/%F0%9F%A4%96modelscope-Steel%20LLM-purple">
         </a>&nbsp&nbsp
-        <a href="./wechat_liangangAI.jpg">
+        <a href=".github/wechat_liangangAI.jpg">
         <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-%E7%82%BC%E9%92%A2AI-brightgreen?logo=wechat&logoColor=white">
         </a>&nbsp&nbsp
         <a href="https://www.zhihu.com/people/zhan-shi-jin-27">
