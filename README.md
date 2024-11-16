@@ -4,6 +4,7 @@
 由<a href="https://www.zhihu.com/people/zhan-shi-jin-27">zhanshijin</a>和<a href="https://www.zhihu.com/people/a-xun-58-5">lishu14</a>创建
 </div>
 
+\[ 中文 | [English](README_en.md) \]
 
 ## 👋 介绍
 Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用了1T token的数据预训练一个1B左右参数量的中文LLM。项目从开始到微调出第一版模型耗时了8个月。我们详细的分享了数据收集、数据处理、预训练框架选择、模型设计等全过程，并开源全部代码。让每个人在有8~几十张卡的情况下都能复现我们的工作。得益于开源中文数据，Steel-LLM在中文benchmark上表现优于机构早期发布的一些更大的模型，在ceval达到了38分，cmmlu达到了33分。
@@ -96,7 +97,7 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
 #### step2：data-juicer数据处理
 - 运行方式：`sh data/pretrain_data_prepare/step2/run_step2.sh`
 
-- 具体使用的data juicer算子见<a href=".github/datajuicer.md">此文档</a>。
+- 具体使用的data juicer算子见<a href=".github/datajuicer_op.md">此文档</a>。
 
 #### step3：生成最终用于训练的bin格式
 需要先在代码中修改filename_sets，指定数据路径，然后运行如下程序：
@@ -198,7 +199,3 @@ GPU：8* H800 80G(训练30天左右)
 GPU：8* A100 80G（训练60天左右）
 
 硬盘：4TB
-
-
-
-
