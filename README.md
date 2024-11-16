@@ -70,7 +70,7 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
 
 ## 🤖 预训练
 ### 数据收集
-使用的数据集和链接如下所示，更详细的介绍请看[**此篇文章**](https://zhuanlan.zhihu.com/p/687338497)
+使用的数据集和链接如下所示，更详细的介绍见[**此篇文章**](https://zhuanlan.zhihu.com/p/687338497)
 
 - [Skywork/Skypile-150B数据集](https://huggingface.co/datasets/Skywork/SkyPile-150B/tree/main/data)
 - [wanjuan1.0(nlp部分)](https://opendatalab.org.cn/OpenDataLab/WanJuan1_dot_0?source=Q1NETg)
@@ -84,6 +84,7 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
 - [starcoder](https://hf-mirror.com/datasets/bigcode/starcoderdata)
 
 ### 数据处理
+(详细内容见[**此篇文章**](https://mp.weixin.qq.com/s/yqmtHLuuNV9075qHgzhcPw))
 #### step1：格式转化
 - 源数据：针对4类数据进行格式统一的转化处理：
   - 简单文本：百度百科（title和各段落需要手动合并）、中文维基
@@ -108,11 +109,14 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
 不单独训练tokenizer，使用[Qwen/Qwen1.5-MoE-A2.7B-Chat](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B-Chat)的tokenizer
 
 ### 模型结构
+(详细内容见[**此篇文章**](https://mp.weixin.qq.com/s/JaZyf1jOEOtNDCcFqSj8TQ))
+
 基于Qwen1.5模型，进行了如下改动：
 - FFN层使用softmax moe，相同参数量下有更高的训练速度
 - 使用双层的SwiGLU
 
 ### 预训练框架
+(详细内容见[**此篇文章**](https://mp.weixin.qq.com/s/KPRir6bK3MZZ-vMFTfhUQQ))
 
 基于TinyLlama预训练程序进行如下改进：
 
@@ -126,6 +130,8 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
 `python Steel-LLM/pretrain_modify_from_TinyLlama/pretrain/pretrain_steel_llm.py`
 
 ### 评估
+(详细内容见[**此篇文章**](https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew))
+
 Steel-LLM在CEVAL和CMMLU上进行了测试。Steel-LLM旨在训练一个中文LLM，80%的训练数据都是中文，因此并没有在英文benchmark上进行评测。
 其他模型的指标来自于CEVAL论文、MiniCPM技术报告、MAP-Neo技术报告等途径。更多模型的指标可查看之前的<a href=https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew>博客</a>
 
