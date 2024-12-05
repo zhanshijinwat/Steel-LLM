@@ -1,27 +1,41 @@
 <div align="center">
 
 # 开源中文预训练语言模型Steel-LLM
-由zhanshijin和lishu14创建
+由<a href="https://www.zhihu.com/people/zhan-shi-jin-27">zhanshijin</a>和<a href="https://www.zhihu.com/people/a-xun-58-5">lishu14</a>创建
 </div>
 
+\[ 中文 | [English](README_en.md) \]
 
 ## 👋 介绍
-Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目标是使用1T+的数据预训练一个1B左右参数量的中文LLM，对标TinyLlama，项目从开始到微调出第一版模型耗时了8个月。我们分享了数据收集、数据处理、预训练框架选择、模型设计等全过程，并开源全部代码。让每个人在有8~几十张卡的情况下都能复现我们的工作。得益于开源中文数据，Steel LLM在中文benchmark上表现优于一些大几倍的机构发布的LLM，最终在ceval达到了38分，cmmlu达到了33分。
+Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用了1T token的数据预训练一个1B左右参数量的中文LLM。项目从开始到微调出第一版模型耗时了8个月。我们详细的分享了数据收集、数据处理、预训练框架选择、模型设计等全过程，并开源全部代码。让每个人在有8~几十张卡的情况下都能复现我们的工作。得益于开源中文数据，Steel-LLM在中文benchmark上表现优于机构早期发布的一些更大的模型，在ceval达到了38分，cmmlu达到了33分。
 <div align="center">
   <img src=".github/steel.png" width="200"/>
 </div>
+
 <p align="center">
-        🤗 <a href="https://huggingface.co/gqszhanshijin/Steel-LLM">Hugging Face</a>&nbsp&nbsp🤖 <a href="https://www.modelscope.cn/models/zhanshijin/Steel-LLM">modelscope</a>&nbsp&nbsp
-        &nbsp&nbsp 📑 <a href="https://www.zhihu.com/people/zhan-shi-jin-27">Blog</a>&nbsp&nbsp&nbsp&nbsp🌐公众号：炼钢AI 
+        <a href="https://huggingface.co/gqszhanshijin/Steel-LLM" target="_blank">
+        <img alt="Static Badge" src="https://img.shields.io/badge/%F0%9F%A4%97Hugging%20Face-Steel%20LLM-yellow">
+        </a>&nbsp&nbsp
+        <a href="https://www.modelscope.cn/models/zhanshijin/Steel-LLM"><img alt="Static Badge" src="https://img.shields.io/badge/%F0%9F%A4%96modelscope-Steel%20LLM-purple">
+        </a>&nbsp&nbsp
+        <a href=".github/wechat_liangangAI.jpg">
+        <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-%E7%82%BC%E9%92%A2AI-brightgreen?logo=wechat&logoColor=white">
+        </a>&nbsp&nbsp
+        <a href="https://www.zhihu.com/people/zhan-shi-jin-27">
+        <img alt="Static Badge" src="https://img.shields.io/badge/%E2%98%91%EF%B8%8Fzhihu%20blog-%E6%88%98%E5%A3%AB%E9%87%91-blue">
+        </a>
+
+
+        
 
 "Steel(钢)"取名灵感来源于华北平原一只优秀的乐队“万能青年旅店（万青）”。乐队在做一专的时候条件有限，自称是在“土法炼钢”，但却是一张神专。我们训练LLM的条件同样有限，但也希望能炼出好“钢”来。
 
 ## 🔔 公告 
 
 ### 更新
-[2024/11/13] 🔥发布一篇项目汇总文章：https://mp.weixin.qq.com/s/POUugkCNZTzmlKWZVVD1CQ🔥  ，技术报告筹备中。。。
+[2024/11/13] 基于Steel-LLM后续进行sft优化（主要集中在sft样本筛选）和强化学习的训练。
 
-[2024/10/29] 基于Steel-LLM后续进行sft优化（主要集中在sft样本筛选）和强化学习的训练。
+[2024/11/13] 🔥发布一篇项目汇总文章《个人从零预训练1B LLM心路历程》：https://mp.weixin.qq.com/s/POUugkCNZTzmlKWZVVD1CQ🔥  ，技术报告筹备中。。。
 
 [2024/10/28]更新了第一版chat模型，在ceval达到了38分，cmmlu达到了33分。
 
@@ -49,20 +63,15 @@ Steel-LLM是一个从零开始预训练中文大模型的项目。我们的目�
 
 [2024/4/14] 完成数据收集与处理，生成预训练程序所需要的bin文件。更新数据收集与处理相关的博客：https://zhuanlan.zhihu.com/p/687338497
 
-### 技术分享
-
-zhanshijin的知乎：https://www.zhihu.com/people/zhan-shi-jin-27
-
-lishu14的知乎：https://www.zhihu.com/people/a-xun-58-5
-
 
 ### 🧑‍🤝‍🧑 交流
 欢迎加入交流群,人数已超过200，添加微信入群：a1843450905
 
+<br>
 
 ## 🤖 预训练
 ### 数据收集
-使用的数据集和链接如下所示，更详细的介绍请看[**此篇文章**](https://zhuanlan.zhihu.com/p/687338497)
+使用的数据集和链接如下所示，更详细的介绍见[**此篇文章**](https://zhuanlan.zhihu.com/p/687338497)
 
 - [Skywork/Skypile-150B数据集](https://huggingface.co/datasets/Skywork/SkyPile-150B/tree/main/data)
 - [wanjuan1.0(nlp部分)](https://opendatalab.org.cn/OpenDataLab/WanJuan1_dot_0?source=Q1NETg)
@@ -76,67 +85,22 @@ lishu14的知乎：https://www.zhihu.com/people/a-xun-58-5
 - [starcoder](https://hf-mirror.com/datasets/bigcode/starcoderdata)
 
 ### 数据处理
-#### 格式转化（step1）
-- 源数据：针对三类数据进行格式统一的转化处理。
+(详细内容见[**此篇文章**](https://mp.weixin.qq.com/s/yqmtHLuuNV9075qHgzhcPw))
+#### step1：格式转化
+- 源数据：针对4类数据进行格式统一的转化处理：
   - 简单文本：百度百科（title和各段落需要手动合并）、中文维基
-  - 对话（含单轮与多轮）：百度百科问答数据、BELLE对话数据（BELLE_3_5M）、moss项目对话数据、知乎问答数据
-  - 任务：BELLE任务数据（BELLE_2_5M)、firefly1.1M
+  - 对话（含单轮与多轮）：百度百科问答数据、BELLE对话数据（BELLE_3_5M）、moss项目对话数据、知乎问答数据、BELLE任务数据（BELLE_2_5M)、firefly1.1M
   - 代码数据：starcode
+  - 其他数据：wanjuan和skypile数据集不用做单独处理
 - 目标格式：`{"text": "asdfasdf..."}`，文件保存为.jsonl类型。
 - 运行方式：`python data/pretrain_data_prepare/step1_data_process.py`
-#### data-juicer数据处理（step2）
-我们使用data-juicer处理文本时，不改变数据格式。
+#### step2：data-juicer数据处理
 - 运行方式：`sh data/pretrain_data_prepare/step2/run_step2.sh`
 
-- 选用的文本处理算子
+- 具体使用的data juicer算子见<a href=".github/datajuicer_op.md">此文档</a>。
 
-
-|算子|描述|
-|:----|:----|
-|chinese_convert_mapper|用于在繁体中文、简体中文和日文汉字之间进行转换（借助 opencc）|
-|clean_email_mapper|删除邮箱信息|
-|clean_html_mapper|删除 HTML 标签并返回所有节点的纯文本|
-|clean_ip_mapper|删除 IP 地址|
-|clean_links_mapper|删除链接，例如以 http 或 ftp 开头的|
-|clean_copyright_mapper|删除代码文件开头的版权声明 (:warning: 必须包含单词 copyright)|
-|expand_macro_mapper|扩展通常在 TeX 文档顶部定义的宏|
-|fix_unicode_mapper|修复损坏的 Unicode（借助 ftfy）|
-|punctuation_normalization_mapper|将各种 Unicode 标点符号标准化为其 ASCII 等效项|
-|remove_repeat_sentences_mapper|删除样本中的重复句子|
-|remove_specific_chars_mapper|删除样本中的特殊字符（用户自定义）|
-|whitespace_normalization_mapper|将各类空格归一转换为英语空格|
-|alphanumeric_filter|保留字母数字比例在指定范围内的样本|
-|average_line_length_filter|保留平均行长度在指定范围内的样本|
-|character_repetition_filter|保留 char-level n-gram 重复比率在指定范围内的样本|
-|maximum_line_length_filter|保留最大行长度在指定范围内的样本|
-|perplexity_filter|保留困惑度低于指定阈值的样本|
-|special_characters_filter|保留 special-char 比率的在指定范围内的样本|
-|text_length_filter|保留总文本长度在指定范围内的样本|
-|word_repetition_filter|保留 word-level n-gram 重复比率在指定范围内的样本|
-|document_simhash_deduplicator|使用 SimHash 在文档级别对样本去重|
-
-
-- 选用的代码处理算子
-  
-
-|算子|描述|
-|:----|:----|
-|clean_copyright_mapper|删除代码文件开头的版权声明 (:warning: 必须包含单词 copyright)|
-|clean_email_mapper|删除邮箱信息|
-|clean_links_mapper|删除链接，例如以 http 或 ftp 开头的|
-|fix_unicode_mapper|修复损坏的 Unicode（借助 ftfy）|
-|punctuation_normalization_mapper|将各种 Unicode 标点符号标准化为其 ASCII 等效项|
-|alphanumeric_filter|保留字母数字比例在指定范围内的样本|
-|average_line_length_filter|保留平均行长度在指定范围内的样本|
-|character_repetition_filter|保留 char-level n-gram 重复比率在指定范围内的样本|
-|maximum_line_length_filter|保留最大行长度在指定范围内的样本|
-|text_length_filter|保留总文本长度在指定范围内的样本|
-|word_num_filter|保留字数在指定范围内的样本|
-|word_repetition_filter|保留 word-level n-gram 重复比率在指定范围内的样本|
-|document_simhash_deduplicator|使用 SimHash 在文档级别对样本去重|
-
-#### 生成最终用于训练的bin格式
-需要先在代码中修改filename_sets，指定数据路径：
+#### step3：生成最终用于训练的bin格式
+需要先在代码中修改filename_sets，指定数据路径，然后运行如下程序：
 
 `python pretrain_modify_from_TinyLlama/scripts/prepare_steel_llm_data.py`
 
@@ -146,11 +110,14 @@ lishu14的知乎：https://www.zhihu.com/people/a-xun-58-5
 不单独训练tokenizer，使用[Qwen/Qwen1.5-MoE-A2.7B-Chat](https://huggingface.co/Qwen/Qwen1.5-MoE-A2.7B-Chat)的tokenizer
 
 ### 模型结构
+(详细内容见[**此篇文章**](https://mp.weixin.qq.com/s/JaZyf1jOEOtNDCcFqSj8TQ))
+
 基于Qwen1.5模型，进行了如下改动：
 - FFN层使用softmax moe，相同参数量下有更高的训练速度
 - 使用双层的SwiGLU
 
-### 预训框架
+### 预训练框架
+(详细内容见[**此篇文章**](https://mp.weixin.qq.com/s/KPRir6bK3MZZ-vMFTfhUQQ))
 
 基于TinyLlama预训练程序进行如下改进：
 
@@ -164,6 +131,8 @@ lishu14的知乎：https://www.zhihu.com/people/a-xun-58-5
 `python Steel-LLM/pretrain_modify_from_TinyLlama/pretrain/pretrain_steel_llm.py`
 
 ### 评估
+(详细内容见[**此篇文章**](https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew))
+
 Steel-LLM在CEVAL和CMMLU上进行了测试。Steel-LLM旨在训练一个中文LLM，80%的训练数据都是中文，因此并没有在英文benchmark上进行评测。
 其他模型的指标来自于CEVAL论文、MiniCPM技术报告、MAP-Neo技术报告等途径。更多模型的指标可查看之前的<a href=https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew>博客</a>
 
@@ -185,6 +154,7 @@ Steel-LLM在CEVAL和CMMLU上进行了测试。Steel-LLM旨在训练一个中文L
 | OLMo-7B                      | 35.18  | 35.55 |
 | MAP-NEO-7B                   | 56.97  | 55.01 |
 
+<br>
 
 ## ⛏️ 快速使用
 ```python
@@ -224,11 +194,8 @@ print(response)
 ```
 
 ### 硬件资源
-GPU：8* H800 80G
+GPU：8* H800 80G(训练30天左右)
 
-~~GPU：8* A100 80G~~
+GPU：8* A100 80G（训练60天左右）
+
 硬盘：4TB
-
-
-
-
