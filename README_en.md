@@ -34,8 +34,6 @@ Subsequently, further exploration will be carried out in aspects such as mathema
 
 [2025/1/17] Updated steel-LLM-chat-v2. During fine-tuning, English data was added, and the proportion of Chinese and English data remained consistent with that of pre-training. Eventually, the score on Ceval increased from 38 to 41.9, and the score on CMMLU increased from 33 to 36.
 
-[2024/11/13] Based on Steel-LLM, further SFT optimization (mainly focusing on SFT sample selection) and reinforcement learning training.
-
 [2024/11/13] 🔥 Published a project summary article "My Journey of Pre-training a 1B LLM from Scratch": https://mp.weixin.qq.com/s/POUugkCNZTzmlKWZVVD1CQ 🔥 , technical report in preparation...
 
 [2024/10/28] Updated the first version of the chat model, scoring 38 in CEVAL and 33 in CMMLU.
