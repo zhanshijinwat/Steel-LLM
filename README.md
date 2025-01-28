@@ -7,7 +7,7 @@
 \[ 中文 | [English](README_en.md) \]
 
 ## 👋 介绍
-Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用了1T token的数据预训练一个1B左右参数量的中文LLM。项目从开始到微调出第一版模型耗时了8个月。我们详细的分享了数据收集、数据处理、预训练框架选择、模型设计等全过程，并开源全部代码。让每个人在有8~几十张卡的情况下都能复现我们的工作。得益于开源中文数据，Steel-LLM在中文benchmark上表现优于机构早期发布的一些更大的模型，在ceval达到了38分，cmmlu达到了33分。
+Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用了1T token的数据预训练一个1B左右参数量的中文LLM。项目从开始到微调出第一版模型耗时了8个月。我们详细的分享了数据收集、数据处理、预训练框架选择、模型设计等全过程，并开源全部代码。让每个人在有8~几十张卡的情况下都能复现我们的工作。得益于开源中文数据，Steel-LLM在中文benchmark上表现优于机构早期发布的一些更大的模型，在ceval达到了42分，cmmlu达到了36分。
 <div align="center">
   <img src=".github/steel.png" width="200"/>
 </div>
@@ -33,6 +33,10 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
 ## 🔔 公告 
 
 ### 更新
+后续会在数学能力、强化学习、复杂推理等方面会进一步探索......
+
+[2025/1/17]  更新steel-LLM-chat-v2,微调时加入了英文数据，中英文数据比例和预训练保持一致，最终在ceval上由38分提高到了41.9分，cmmlu从33分提高到了36分。
+
 [2024/11/13] 基于Steel-LLM后续进行sft优化（主要集中在sft样本筛选）和强化学习的训练。
 
 [2024/11/13] 🔥发布一篇项目汇总文章《个人从零预训练1B LLM心路历程》：https://mp.weixin.qq.com/s/POUugkCNZTzmlKWZVVD1CQ🔥  ，技术报告筹备中。。。
@@ -133,15 +137,16 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
 ### 评估
 (详细内容见[**此篇文章**](https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew))
 
-Steel-LLM在CEVAL和CMMLU上进行了测试。Steel-LLM旨在训练一个中文LLM，80%的训练数据都是中文，因此并没有在英文benchmark上进行评测。
+Steel-LLM在CEVAL、CMMLU上进行了测试。Steel-LLM旨在训练一个中文LLM，80%的训练数据都是中文，因此在英文benchmark并未做过多的测试。
 其他模型的指标来自于CEVAL论文、MiniCPM技术报告、MAP-Neo技术报告等途径。更多模型的指标可查看之前的<a href=https://mp.weixin.qq.com/s/KK0G0spNw0D9rPUESkHMew>博客</a>
 
 |                              | CEVAL  | CMMLU |
 |------------------------------|--------|-------|
-| Steel-LLM                    | 38.57  | 33.48 |
+| Steel-LLM-chat-v2            | 41.90  | 36.08 |
+| Steel-LLM-chat-v1            | 38.57  | 33.48 |
 | Tiny-Llama-1.1B              | 25.02  | 24.03 |
 | Gemma-2b-it                  | 32.3   | 33.07 |
-| Phi2(2B)	                    | 23.37	 | 24.18 |
+| Phi2(2B)	                   | 23.37	| 24.18 |
 | Deepseek-coder-1.3B-instruct |  28.33 | 27.75 |
 | CT-LLM-SFT-2B                | 41.54  | 41.48 |
 | MiniCPM-2B-sft-fp32          | 49.14  | 51.0  |

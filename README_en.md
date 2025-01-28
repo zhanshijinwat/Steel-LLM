@@ -7,7 +7,7 @@ Created by <a href="https://www.zhihu.com/people/zhan-shi-jin-27">zhanshijin</a>
 \[ [中文](README.md) | English \]
 
 ## 👋 Introduction
-Steel-LLM is a personally initiated project to pre-train a large Chinese model from scratch. We pre-trained a Chinese LLM with approximately 1 billion parameters using 1 trillion tokens of data. The project took 8 months from initiation to the completion of the first version of the model. We have shared the entire process in detail, including data collection, data processing, pre-training framework selection, and model design, and have open-sourced all the code. This enables anyone with 8 to several dozen GPUs to reproduce our work. Thanks to open-source Chinese data, Steel-LLM outperforms some larger early models released by institutions on Chinese benchmarks, scoring 38 in CEVAL and 33 in CMMLU.
+Steel-LLM is a personally initiated project to pre-train a large Chinese model from scratch. We pre-trained a Chinese LLM with approximately 1 billion parameters using 1 trillion tokens of data. The project took 8 months from initiation to the completion of the first version of the model. We have shared the entire process in detail, including data collection, data processing, pre-training framework selection, and model design, and have open-sourced all the code. This enables anyone with 8 to several dozen GPUs to reproduce our work. Thanks to open-source Chinese data, Steel-LLM outperforms some larger early models released by institutions on Chinese benchmarks, scoring 42 in CEVAL and 36 in CMMLU.
 <div align="center">
   <img src=".github/steel.png" width="200"/>
 </div>
@@ -30,6 +30,10 @@ Steel-LLM is a personally initiated project to pre-train a large Chinese model f
 ## 🔔 Announcements
 
 ### Updates
+Subsequently, further exploration will be carried out in aspects such as mathematical ability, reinforcement learning, and complex reasoning...
+
+[2025/1/17] Updated steel-LLM-chat-v2. During fine-tuning, English data was added, and the proportion of Chinese and English data remained consistent with that of pre-training. Eventually, the score on Ceval increased from 38 to 41.9, and the score on CMMLU increased from 33 to 36.
+
 [2024/11/13] Based on Steel-LLM, further SFT optimization (mainly focusing on SFT sample selection) and reinforcement learning training.
 
 [2024/11/13] 🔥 Published a project summary article "My Journey of Pre-training a 1B LLM from Scratch": https://mp.weixin.qq.com/s/POUugkCNZTzmlKWZVVD1CQ 🔥 , technical report in preparation...
@@ -132,10 +136,11 @@ Metrics for other models come from the CEVAL paper, MiniCPM technical report, MA
 
 |                              | CEVAL  | CMMLU |
 |------------------------------|--------|-------|
-| Steel-LLM                    | 38.57  | 33.48 |
+| Steel-LLM-chat-v2            | 41.90  | 36.08 |
+| Steel-LLM-chat-v1            | 38.57  | 33.48 |
 | Tiny-Llama-1.1B              | 25.02  | 24.03 |
 | Gemma-2b-it                  | 32.3   | 33.07 |
-| Phi2(2B)                      | 23.37  | 24.18 |
+| Phi2(2B)	                   | 23.37	| 24.18 |
 | Deepseek-coder-1.3B-instruct |  28.33 | 27.75 |
 | CT-LLM-SFT-2B                | 41.54  | 41.48 |
 | MiniCPM-2B-sft-fp32          | 49.14  | 51.0  |
