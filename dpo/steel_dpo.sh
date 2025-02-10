@@ -1,12 +1,12 @@
 export LLaMA_PATH=../
-OUTPUT_DIR=/data/model/llm/dpo_model
+OUTPUT_DIR=/xxx/dpo_model
 # max_steps / num_train_epochs
 CUDA_VISIBLE_DEVICES=1,2,3,4 torchrun --nproc_per_node 4 $LLaMA_PATH/src/train.py \
     --stage dpo \
     --do_train \
     --pref_beta 0.1 \
     --pref_loss sigmoid \
-    --model_name_or_path /data/model/llm/fintuned_model/ChnAndEng_70wchineseinfinity_200wchoice_3wengchoice_codef20_openhrm20_webinst20_bz8/checkpoint-72000 \
+    --model_name_or_path /xxx/ChnAndEng_70wchineseinfinity_200wchoice_3wengchoice_codef20_openhrm20_webinst20_bz8/checkpoint-72000 \
     --cutoff_len 1536 \
     --dataset_dir $LLaMA_PATH/data \
     --dataset dpo_ultrafeedback_chinese_and_english \
