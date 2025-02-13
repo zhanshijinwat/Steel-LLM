@@ -14,15 +14,18 @@ Steel-LLM is a personally initiated project to pre-train a large Chinese model f
 <p align="center">
         <a href="https://huggingface.co/gqszhanshijin/Steel-LLM" target="_blank">
         <img alt="Static Badge" src="https://img.shields.io/badge/%F0%9F%A4%97Hugging%20Face-Steel%20LLM-yellow">
-        </a>&nbsp&nbsp
+        </a>
+        <span style="display: inline-block; width: 10px;"></span>
         <a href="https://www.modelscope.cn/models/zhanshijin/Steel-LLM"><img alt="Static Badge" src="https://img.shields.io/badge/%F0%9F%A4%96modelscope-Steel%20LLM-purple">
-        </a>&nbsp&nbsp
+        </a>
+        <span style="display: inline-block; width: 10px;"></span>
         <a href=".github/wechat_liangangAI.jpg">
         <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-%E7%82%BC%E9%92%A2AI-brightgreen?logo=wechat&logoColor=white">
         </a><br>
         <a href="https://www.zhihu.com/people/zhan-shi-jin-27">
         <img alt="Static Badge" src="https://img.shields.io/badge/%E2%98%91%EF%B8%8Fzhihu%20blog-%E6%88%98%E5%A3%AB%E9%87%91-blue">
-        </a>&nbsp&nbsp
+        </a>
+        <span style="display: inline-block; width: 10px;"></span>
         <a href="https://arxiv.org/abs/2502.06635" target="_blank">
         <img alt="Arxiv" src="https://img.shields.io/badge/Arxiv-Steel%20LLM-7289da?logo=arxiv&logoColor=red&color=red" />
         </a>
