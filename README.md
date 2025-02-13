@@ -1,7 +1,6 @@
 <div align="center">
 
 # 开源中文预训练语言模型Steel-LLM
-由<a href="https://www.zhihu.com/people/zhan-shi-jin-27">zhanshijin</a>和<a href="https://www.zhihu.com/people/a-xun-58-5">lishu14</a>创建
 </div>
 
 \[ 中文 | [English](README_en.md) \]
@@ -23,6 +22,9 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
         </a>&nbsp&nbsp
         <a href="https://www.zhihu.com/people/zhan-shi-jin-27">
         <img alt="Static Badge" src="https://img.shields.io/badge/%E2%98%91%EF%B8%8Fzhihu%20blog-%E6%88%98%E5%A3%AB%E9%87%91-blue">
+        </a>&nbsp&nbsp
+        <a href="https://arxiv.org/abs/2502.06635" target="_blank">
+        <img alt="Arxiv" src="https://img.shields.io/badge/Arxiv-Steel%20LLM-7289da?logo=arxiv&logoColor=red&color=red" />
         </a>
 
 
@@ -35,9 +37,11 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
 ### 更新
 后续会在数学能力、强化学习、复杂推理等方面进一步探索......
 
+[2025/2/13] 上传了技术报告：https://arxiv.org/abs/2502.06635
+
 [2025/1/17]  更新steel-LLM-chat-v2,微调时加入了英文数据，中英文数据比例和预训练保持一致，最终在ceval上由38分提高到了41.9分，cmmlu从33分提高到了36分。
 
-[2024/11/13] 🔥发布一篇项目汇总文章《个人从零预训练1B LLM心路历程》：https://mp.weixin.qq.com/s/POUugkCNZTzmlKWZVVD1CQ🔥  ，技术报告筹备中。。。
+[2024/11/13] 🔥发布一篇项目汇总文章《个人从零预训练1B LLM心路历程》：https://mp.weixin.qq.com/s/POUugkCNZTzmlKWZVVD1CQ🔥 
 
 [2024/10/28]更新了第一版chat模型，在ceval达到了38分，cmmlu达到了33分。
 
