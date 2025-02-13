@@ -19,9 +19,12 @@ Steel-LLM is a personally initiated project to pre-train a large Chinese model f
         </a>&nbsp&nbsp
         <a href=".github/wechat_liangangAI.jpg">
         <img alt="Static Badge" src="https://img.shields.io/badge/WeChat-%E7%82%BC%E9%92%A2AI-brightgreen?logo=wechat&logoColor=white">
-        </a>&nbsp&nbsp
+        </a><br>
         <a href="https://www.zhihu.com/people/zhan-shi-jin-27">
         <img alt="Static Badge" src="https://img.shields.io/badge/%E2%98%91%EF%B8%8Fzhihu%20blog-%E6%88%98%E5%A3%AB%E9%87%91-blue">
+        </a>&nbsp&nbsp
+        <a href="https://arxiv.org/abs/2502.06635" target="_blank">
+        <img alt="Arxiv" src="https://img.shields.io/badge/Arxiv-Steel%20LLM-7289da?logo=arxiv&logoColor=red&color=red" />
         </a>
 
 "Steel" was inspired by an excellent band from the North China Plain called “Omnipotent Youth Society (万青)”. When they were producing their first album under limited conditions, they referred to it as "making steel with primitive methods," but it turned out to be a legendary album. Similarly, our conditions for training the LLM are limited, but we hope to produce good "steel" nonetheless.
