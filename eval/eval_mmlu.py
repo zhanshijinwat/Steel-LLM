@@ -137,7 +137,7 @@ def eval_subject(
         input_ids = torch.tensor(input_ids, device=model.device)
         generated_ids = model.generate(
             input_ids,
-            max_new_tokens=64,
+            max_new_tokens=256,
             temperature = 0.001,
         )
         generated_ids = [
@@ -306,6 +306,7 @@ SUBJECTS = [v for vl in TASK_NAME_MAPPING.values() for v in vl]
 choices = ["A", "B", "C", "D"]
 
 if __name__ == "__main__":
+    # python -u eval_CMMLU.py --model_name_or_path /xxx/dpo_ultrafeedback_chinese_and_20%english/checkpoint-1593 --save_dir ./CMMLU_results/dpo-1593
     parser = argparse.ArgumentParser(description="Test HF checkpoint.")
     parser.add_argument(
         "-c",

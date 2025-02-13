@@ -41,7 +41,7 @@ def load_models_tokenizer(args):
 
 
 def format_example(line, include_answer=True):
-    example = "问题：" + line["question"]
+    example = "以下是一道单项选择题，请直接给出答案。" + line["question"]
     for choice in choices:
         example += f'\n{choice}. {line[f"{choice}"]}'
 
@@ -65,6 +65,17 @@ def generate_few_shot_prompt(k, subject, dev_df):
 
 
 def get_logits(tokenizer, model, inputs: List[str]):
+    assert len(inputs) == 1
+    messages = [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": inputs[0]}
+                ]
+    print(messages)
+    inputs = tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+    )
     input_ids = tokenizer(inputs, padding='longest')["input_ids"]
     input_ids = torch.tensor(input_ids, device=model.device)
     tokens = {"input_ids": input_ids}
@@ -441,7 +452,7 @@ if __name__ == "__main__":
         "--checkpoint-path",
         type=str,
         help="Checkpoint path",
-        default="/data/model/llm/hf_model/steel-llm-step-660000-ckpt",
+        default="/xxx/Steel-LLM/steel-llm-step-1060000-ckpt",
     )
     parser.add_argument("-s", "--seed", type=int, default=1234, help="Random seed")
 
@@ -449,12 +460,12 @@ if __name__ == "__main__":
     group = parser.add_argument_group(title="Evaluation options")
     group.add_argument(
         "-d", "--eval_data_path", type=str, required=False, help="Path to eval data",
-        default="/home/gujiangang/data_struct/eval/data/ceval"
+        default="/xxx/data_struct/eval/data/ceval"
     )
     group.add_argument(
         "--max-seq-len",
         type=int,
-        default=2048,
+        default=20,
         help="Size of the output generated text.",
     )
     group.add_argument(

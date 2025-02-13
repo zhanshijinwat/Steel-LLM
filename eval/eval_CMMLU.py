@@ -31,7 +31,7 @@ def init_model(args):
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name_or_path,
         trust_remote_code=True,
-        device_map="cuda:0",
+        device_map="cuda:7",
         torch_dtype=torch.float16,
     )
     model.generation_config = GenerationConfig.from_pretrained(
@@ -135,8 +135,8 @@ def eval_chat(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name_or_path", type=str, default="/data/model/llm/fintuned_model/70wchineseinfinity_200wchoice_selfcog_ruozhiba_cmmlu/checkpoint-12000")
-    parser.add_argument("--data_dir", type=str, default="/home/xxx/gjg_data_struct/data_struct/CMMLU/data")
+    parser.add_argument("--model_name_or_path", type=str, default="/xxx/70wchineseinfinity_200wchoice_selfcog_ruozhiba_cmmlu/checkpoint-12000")
+    parser.add_argument("--data_dir", type=str, default="/xxx/CMMLU/data")
     parser.add_argument("--save_dir", type=str, default="./CMMLU_results/70wchineseinfinity_steelllm")
     parser.add_argument("--num_few_shot", type=int, default=0)
     parser.add_argument("--max_length", type=int, default=64)

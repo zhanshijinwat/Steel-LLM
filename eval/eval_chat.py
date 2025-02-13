@@ -11,6 +11,8 @@ from transformers.trainer_utils import set_seed
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from transformers.generation import GenerationConfig
 import random
+from transformers.dynamic_module_utils import get_imports
+from mock import patch
 '''
 wget https://huggingface.co/datasets/ceval/ceval-exam/resolve/main/ceval-exam.zip
 mkdir data/ceval
@@ -23,12 +25,19 @@ python eval/evaluate_chat_ceval.py -d data/ceval
 '''
 
 def load_models_tokenizer(args):
+    def fixed_get_imports(filename) -> list[str]:
+        imports = get_imports(filename)
+        print(imports)
+        # imports.remove("flash_attn")
+        return imports
+
     tokenizer = AutoTokenizer.from_pretrained(
         args.checkpoint_path, trust_remote_code=True
     )
-    model = AutoModelForCausalLM.from_pretrained(
-        args.checkpoint_path, device_map=args.device, trust_remote_code=True
-    ).eval()
+    with patch("transformers.dynamic_module_utils.get_imports", fixed_get_imports):
+        model = AutoModelForCausalLM.from_pretrained(
+            args.checkpoint_path, device_map=args.device, trust_remote_code=True
+        ).eval()
     model.generation_config = GenerationConfig.from_pretrained(
         args.checkpoint_path, trust_remote_code=True
     )
@@ -485,17 +494,13 @@ if __name__ == "__main__":
         "--checkpoint-path",
         type=str,
         help="Checkpoint path",
-        # 7w选择题（from llam3-syne）:/data/model/llm/fintuned_model/steel_7w_llma3syne/checkpoint-597
-        # qwen2-0.5B-chat:/data/model/qwen2_05_chat
-        default="/data/model/llm/fintuned_model/train_ceval_job/10epoch_5e5",
+        default="/xxx/from_pretrain_70wchineseinfinity_200wchoice_selfcog_ruozhiba/checkpoint-27369",
     )
     parser.add_argument(
         "-dev",
         "--device",
         type=str,
         help="Checkpoint path",
-        # 7w选择题（from llam3-syne）:/data/model/llm/fintuned_model/steel_7w_llma3syne/checkpoint-597
-        # qwen2-0.5B-chat:/data/model/qwen2_05_chat
         default="cuda:0",
     )
     parser.add_argument("-s", "--seed", type=int, default=1234, help="Random seed")
@@ -504,7 +509,7 @@ if __name__ == "__main__":
     group = parser.add_argument_group(title="Evaluation options")
     group.add_argument(
         "-d", "--eval_data_path", type=str, required=False, help="Path to eval data",
-        default="/home/gujiangang/data_struct/eval/data/ceval"
+        default="/xxx/data_struct/eval/data/ceval"
     )
     group.add_argument(
         "--debug", action="store_true", default=False, help="Print infos."
