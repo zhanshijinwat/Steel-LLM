@@ -202,3 +202,15 @@ GPU：8* H800 80G(训练30天左右)
 GPU：8* A100 80G（训练60天左右）
 
 硬盘：4TB
+
+## Citation
+
+**BibTeX:**
+```bibtex
+@article{gu2025steel,
+  title={Steel-LLM: From Scratch to Open Source--A Personal Journey in Building a Chinese-Centric LLM},
+  author={Gu, Qingshui and Li, Shu and Zheng, Tianyu and Zhang, Zhaoxiang},
+  journal={arXiv preprint arXiv:2502.06635},
+  year={2025}
+}
+```
