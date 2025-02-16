@@ -104,7 +104,7 @@ class FormatHandler():
             for i in range(length):
                 res += "<|im_start|>user\n{}<|im_end|>\n".format(question[i]) + \
                        "<|im_start|>assistant\n{}<|im_end|>\n".format(answer[i])
-            res = res.strip("<|im_end|>\n")
+            res = res.rstrip("<|im_end|>\n")
             return res
         
 
