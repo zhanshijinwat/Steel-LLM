@@ -8,3 +8,5 @@ script/output/*
 pretrain_modify_from_TinyLlama/pretrain/out/*
 data/download_data/output/*
 eval/outs*
+/data/home/huzetian/gjg_data_struct/data_struct/Steel-LLM/r1/ablation_gsm8k/outputs/*
+/data/home/huzetian/gjg_data_struct/data_struct/Steel-LLM/r1/ablation_gsm8k/wandb/*
