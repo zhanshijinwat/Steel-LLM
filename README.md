@@ -40,6 +40,8 @@ Steel-LLM是个人发起的从零预训练中文大模型项目。我们使用�
 ### 更新
 后续会在数学能力、强化学习、复杂推理等方面进一步探索......
 
+[2025/3/6] 🎉🎉🎉《Steel-LLM:From Scratch to Open Source -- A Personal Journey in Building a Chinese-Centric LLM》被ICLR 2025 workshop 接收
+
 [2025/2/13] 上传了技术报告：https://arxiv.org/abs/2502.06635
 
 [2025/1/17]  更新steel-LLM-chat-v2,微调时加入了英文数据，中英文数据比例和预训练保持一致，最终在ceval上由38分提高到了41.9分，cmmlu从33分提高到了36分。

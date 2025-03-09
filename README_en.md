@@ -37,6 +37,8 @@ Steel-LLM is a personally initiated project to pre-train a large Chinese model f
 ### Updates
 Subsequently, further exploration will be carried out in aspects such as mathematical ability, reinforcement learning, and complex reasoning...
 
+[2025/3/6] 🎉🎉🎉《Steel-LLM:From Scratch to Open Source -- A Personal Journey in Building a Chinese-Centric LLM》has been accepted by the ICLR 2025 workshop.
+
 [2025/2/13] The technical report has been uploaded：https://arxiv.org/abs/2502.06635
 
 [2025/1/17] Updated steel-LLM-chat-v2. During fine-tuning, English data was added, and the proportion of Chinese and English data remained consistent with that of pre-training. Eventually, the score on Ceval increased from 38 to 41.9, and the score on CMMLU increased from 33 to 36.
