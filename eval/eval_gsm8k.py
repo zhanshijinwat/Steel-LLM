@@ -50,7 +50,7 @@ def generate_sample(model, tokenizer, question):
     input_ids = torch.tensor(input_ids, device=model.device)
     generated_ids = model.generate(
         input_ids,
-        max_new_tokens=256,
+        max_new_tokens=4096+2000,
         temperature = 0.001,
     )
     generated_ids = [

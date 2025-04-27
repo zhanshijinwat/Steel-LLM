@@ -14,6 +14,7 @@
 
 import re
 from thefuzz import process
+import random
 
 def extract_solution(solution_str, choice_list, choices= ["A", "B", "C", "D"]):
     # 答案是A | 选项是A | 应该选A选项
@@ -55,6 +56,11 @@ def compute_score(solution_str, ground_truth, choice_list, format_score=0., scor
         score: the score for the correct answer
     """
     answer = extract_solution(solution_str=solution_str, choice_list=choice_list)
+    if random.random() < 0.1:
+        # for 5% of the cases, print; otherwise, print nothing to accelerate the process 
+        print(f"\n[Model Response]\n{solution_str}")
+        print(f"\n[Ground Truth]\n{ground_truth}")
+        print(f"\n[Extracted Answer]\n{answer}")
     if answer is None:
         return 0
     else:

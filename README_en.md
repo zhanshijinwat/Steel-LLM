@@ -37,6 +37,8 @@ Steel-LLM is a personally initiated project to pre-train a large Chinese model f
 ### Updates
 Subsequently, further exploration will be carried out in aspects such as mathematical ability, reinforcement learning, and complex reasoning...
 
+[2025/3/10] a blog related to reinforcement learning was published: "Exploration of Rejection Sampling Fine-tuning for Accelerating RL Convergence and the Problem of Model Forgetting": https://mp.weixin.qq.com/s/Qk4bN6yFkI39Ye9fsS4NXA
+
 [2025/3/6] 🎉🎉🎉《Steel-LLM:From Scratch to Open Source -- A Personal Journey in Building a Chinese-Centric LLM》has been accepted by the ICLR 2025 workshop.
 
 [2025/2/13] The technical report has been uploaded：https://arxiv.org/abs/2502.06635

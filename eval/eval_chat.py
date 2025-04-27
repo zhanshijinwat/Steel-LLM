@@ -93,6 +93,9 @@ def extract_choice(gen, prompt, choice_list):
     # 直接输出 A
     if res is None:
         res = re.search(r"^[\(（]?(A|B|C|D)(?:。|\)|）|\.|，|,|．|：|:|$)", gen)
+    
+    if res is None:
+        res = re.search(r"(?:最终答案是)[^ABCD]{0,10}?(A|B|C|D)(?:选项)?(?:\)|。|\.|，|,|．|、|A|B|C|D|$|：|:|\)|）)",gen)
 
     # 获取第一个出现的字母
     if res is None:
@@ -134,8 +137,11 @@ def format_example(line):
         return example, answer
 
 
-def extract_answer(response, row):
+def extract_answer(response, row, if_cotanswer=False):
     prompt = row["question"]
+    if "最终答案" in response and if_cotanswer:
+        response = "答案"+response.split("最终答案")[-1]
+        print("porcessed response:", response)
     gen = process_before_extraction(
         response, prompt, {choice: row[choice] for choice in choices}
     )
@@ -153,6 +159,7 @@ def eval_subject(
     test_df,
     save_result_dir=None,
     overwrite=False,
+    args=None,
     **kwargs
 ):
     result_path = os.path.join(save_result_dir, f"{subject_name}_result.csv")
@@ -162,7 +169,7 @@ def eval_subject(
         for (_, datarow), (_, resultrow) in zip(
             test_df.iterrows(), pd.read_csv(result_path).iterrows()
         ):
-            pred = extract_answer(resultrow["model_response"], datarow)
+            pred = extract_answer(resultrow["model_response"], datarow, args.cotanswer)
             correct = 1 if pred == datarow["answer"] else 0
             score.append(correct)
         correct_ratio = 100 * sum(score) / len(score)
@@ -177,8 +184,12 @@ def eval_subject(
         question = question.replace("____。", "( )")
         #few_shot = "下面是3个单选题的示例：\n\n 1.下列设备属于资源子网的是____。\nA. 计算机软件\nB. 网桥\nC. 交换机\nD. 路由器\n答案是A\n\n2.滑动窗口的作用是____。\nA. 流量控制\nB. 拥塞控制\nC. 路由控制\nD. 差错控制\n答案是A\n\n3.在OSI参考模型中，直接为会话层提供服务的是____。\nA. 应用层\nB. 表示层\nC. 传输层\nD. 网络层\n答案是C\n\n"
         few_shot = ""
-        question = f"以下是一道单选题:\n{question}请给出答案。\n"
+        # question = f"以下是一道单选题:\n{question}请给出答案。\n"
         # question = f"以下是一道单选题:\n{question}请先给出解释再给出答案。\n"
+        if args.cotanswer:
+            question = f"请一步步思考以下选择题的每个选项，然后再给出最终答案。\n\n 选择题：\n{question}"
+        else:
+             question = f"以下是一道单选题:\n{question}请给出答案。\n"
         messages = [
                 {"role": "system", "content": "You are a helpful assistant."},
                 {"role": "user", "content": question}
@@ -192,7 +203,7 @@ def eval_subject(
         input_ids = torch.tensor(input_ids, device=model.device)
         generated_ids = model.generate(
             input_ids,
-            max_new_tokens=64,
+            max_new_tokens=1024,
             temperature = 0.001,
         )
         generated_ids = [
@@ -203,7 +214,7 @@ def eval_subject(
         print("↓"*10)
         response = response.replace(question, "")
         print("response:", response)
-        pred = extract_answer(response, row)
+        pred = extract_answer(response, row, args.cotanswer)
         print("predict:", pred, "answer:",answer)
         print("======================") 
 
@@ -479,6 +490,7 @@ def main(args):
             val_df,
             save_result_dir="outs_chat/ceval_eval_result",
             overwrite=args.overwrite,
+            args = args,
         )
         dev_result[subject_name] = score
     
@@ -519,6 +531,12 @@ if __name__ == "__main__":
         action="store_true",
         default=True,
         help="Overwrite existed results",
+    )
+    group.add_argument(
+        "--cotanswer",
+        action="store_true",
+        default=False,
+        help="if cot answer",
     )
     args = parser.parse_args()
     set_seed(args.seed)

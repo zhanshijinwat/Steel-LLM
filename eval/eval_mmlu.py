@@ -44,6 +44,7 @@ def format_example(line):
         + line["question"]
         + "\n"
     )
+    # example = f'Please think step by step about each option of the following multiple-choice question, and then provide the final answer.\n\nMultiple-choice question:\n{line["question"]}\n'
     for choice in choices:
         example += f'{choice}. {line[f"{choice}"]}\n'
     return example, answer
@@ -137,7 +138,7 @@ def eval_subject(
         input_ids = torch.tensor(input_ids, device=model.device)
         generated_ids = model.generate(
             input_ids,
-            max_new_tokens=256,
+            max_new_tokens=1024,
             temperature = 0.001,
         )
         generated_ids = [
